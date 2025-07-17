@@ -52,7 +52,7 @@ const LoginPage = () => {
                 </span>
                 <a
                   href="/signup"
-                  className="text-purple-300 hover:text-purple-200 font-medium text-[12px]"
+                  className="text-purple-300 hover:text-purple-200 font-medium text-[19px]"
                 >
                   Sign up
                 </a>
