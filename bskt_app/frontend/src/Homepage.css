@@ -1,0 +1,7 @@
+html,
+body,
+#root {
+  background-color: black !important;
+  min-height: 100vh;
+  height: 100%;
+}
