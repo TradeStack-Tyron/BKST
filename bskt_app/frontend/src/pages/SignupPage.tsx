@@ -1,5 +1,5 @@
-import React from 'react';
-import { useState } from 'react';
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 const SignupPage = () => {
   const [fullName, setFullName] = useState('');
@@ -7,6 +7,53 @@ const SignupPage = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  const navigate = useNavigate();
+
+  const handleSignup = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setError('');
+    setSuccess('');
+
+    if (password !== confirmPassword) {
+      setError('Passwords do not match');
+      return;
+    }
+
+    // Prepare the data to match backend expectations
+    const data = {
+      full_name: fullName, // send as full_name to match backend
+      username,
+      email,
+      password,
+    };
+
+    try {
+      const response = await fetch('http://localhost:8000/signup', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      });
+
+      if (response.ok) {
+        const user = await response.json();
+        setFullName('');
+        setUsername('');
+        setEmail('');
+        setPassword('');
+        setConfirmPassword('');
+        navigate(`/userdash/${user.id}`);
+      } else {
+        const errorData = await response.json();
+        setError(errorData.detail || 'Signup failed');
+      }
+    } catch {
+      setError('Network error');
+    }
+  };
 
   return (
     <div className="bg-black">
@@ -25,10 +72,20 @@ const SignupPage = () => {
 
         <div className="mx-auto max-w-2xl py-16 sm:py-24 lg:py-32">
           <div className="login-outer-div">
-            <form action="">
+            <form onSubmit={handleSignup}>
               <h1 className="text-5xl font-semibold tracking-tight text-balance text-purple-200 sm:text-7xl mb-8">
                 BKST.
               </h1>
+              {error && (
+                <div style={{ color: 'red', marginBottom: '1rem' }}>
+                  {error}
+                </div>
+              )}
+              {success && (
+                <div style={{ color: 'green', marginBottom: '1rem' }}>
+                  {success}
+                </div>
+              )}
               <label htmlFor="fullName">Full Name</label>
               <input
                 type="text"
@@ -42,6 +99,7 @@ const SignupPage = () => {
                 id="username"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
+                required
               />
               <label htmlFor="email">Email</label>
               <input
@@ -49,6 +107,7 @@ const SignupPage = () => {
                 id="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                required
               />
               <label htmlFor="password">Create Password</label>
               <input
@@ -56,6 +115,7 @@ const SignupPage = () => {
                 id="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                required
               />
               <label htmlFor="confirmPassword">Confirm Password</label>
               <input
@@ -63,6 +123,7 @@ const SignupPage = () => {
                 id="confirmPassword"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
+                required
               />
               <button type="submit">Create Account</button>
             </form>
