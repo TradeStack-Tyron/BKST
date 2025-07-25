@@ -1,6 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Plus, Activity, DollarSign, TrendingUp, X } from 'lucide-react';
+import {
+  Plus,
+  Activity,
+  DollarSign,
+  TrendingUp,
+  X,
+  LogOut,
+  BookOpen, // New Icon
+} from 'lucide-react';
 
 interface FormData {
   sessionName: string;
@@ -14,9 +22,10 @@ interface Session {
   name: string;
   start_date: string;
   end_date: string;
-  starting_capital: number;
-  result: number | null;
+  starting_capital: number | string;
+  result: number | string | null;
   created_at: string;
+  is_completed: boolean;
 }
 
 interface User {
@@ -35,7 +44,6 @@ const TraderDashboard = () => {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  // Form state
   const [showCreateForm, setShowCreateForm] = useState<boolean>(false);
   const [formData, setFormData] = useState<FormData>({
     sessionName: '',
@@ -44,32 +52,34 @@ const TraderDashboard = () => {
     startingCapital: '',
   });
 
-  // Get auth token from localStorage
   const getAuthToken = () => {
     return localStorage.getItem('access_token');
   };
 
-  // Check authentication
+  const handleLogout = () => {
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('user_id');
+    setUser(null);
+    setSessions([]);
+    navigate('/');
+  };
+
   useEffect(() => {
     const token = getAuthToken();
     if (!token) {
       navigate('/login');
-      return;
     }
   }, [navigate]);
 
-  // Fetch user data
   useEffect(() => {
     const fetchUser = async () => {
       if (!userId) return;
-
       try {
         const token = getAuthToken();
         if (!token) {
           setError('No authentication token found');
           return;
         }
-
         const response = await fetch(
           `http://localhost:8000/userdash/${userId}`,
           {
@@ -79,7 +89,6 @@ const TraderDashboard = () => {
             },
           }
         );
-
         if (response.ok) {
           const data = await response.json();
           setUser(data);
@@ -90,11 +99,9 @@ const TraderDashboard = () => {
         setError('Network error occurred');
       }
     };
-
     fetchUser();
   }, [userId]);
 
-  // Fetch user sessions
   useEffect(() => {
     const fetchSessions = async () => {
       try {
@@ -103,14 +110,12 @@ const TraderDashboard = () => {
           setError('No authentication token found');
           return;
         }
-
         const response = await fetch('http://localhost:8000/sessions', {
           headers: {
             Authorization: `Bearer ${token}`,
             'Content-Type': 'application/json',
           },
         });
-
         if (response.ok) {
           const data = await response.json();
           setSessions(data);
@@ -123,7 +128,6 @@ const TraderDashboard = () => {
         setLoading(false);
       }
     };
-
     fetchSessions();
   }, []);
 
@@ -138,10 +142,8 @@ const TraderDashboard = () => {
 
   const handleSubmit = async (): Promise<void> => {
     if (submitting) return;
-
     setSubmitting(true);
     setError(null);
-
     try {
       const token = getAuthToken();
       if (!token) {
@@ -149,13 +151,10 @@ const TraderDashboard = () => {
         navigate('/login');
         return;
       }
-
-      // Validate form data
       if (!formData.sessionName.trim()) {
         setError('Session name is required');
         return;
       }
-
       if (
         !formData.startingCapital ||
         parseFloat(formData.startingCapital) <= 0
@@ -163,24 +162,20 @@ const TraderDashboard = () => {
         setError('Starting capital must be greater than 0');
         return;
       }
-
       if (!formData.startDate || !formData.endDate) {
         setError('Both start and end dates are required');
         return;
       }
-
       if (new Date(formData.startDate) >= new Date(formData.endDate)) {
         setError('End date must be after start date');
         return;
       }
-
       const sessionData = {
         name: formData.sessionName.trim(),
         start_date: formData.startDate,
         end_date: formData.endDate,
         starting_capital: parseFloat(formData.startingCapital),
       };
-
       const response = await fetch('http://localhost:8000/sessions', {
         method: 'POST',
         headers: {
@@ -189,7 +184,6 @@ const TraderDashboard = () => {
         },
         body: JSON.stringify(sessionData),
       });
-
       if (response.ok) {
         const newSession = await response.json();
         setSessions([newSession, ...sessions]);
@@ -216,53 +210,55 @@ const TraderDashboard = () => {
     }
   };
 
-  // Calculate stats from actual sessions
   const calculateStats = () => {
     const activeSessions = sessions.filter(
-      (session) => session.result === null
+      (session) => !session.is_completed
     ).length;
     const totalPnL = sessions.reduce((sum, session) => {
-      return sum + (session.result || 0);
+      const resultValue = session.result
+        ? parseFloat(session.result as string)
+        : 0;
+      return sum + resultValue;
     }, 0);
-
     const completedSessions = sessions.filter(
-      (session) => session.result !== null
+      (session) => session.is_completed
     );
     const winningSessions = completedSessions.filter(
-      (session) => (session.result || 0) > 0
+      (session) =>
+        (session.result ? parseFloat(session.result as string) : 0) > 0
     ).length;
     const winRate =
       completedSessions.length > 0
         ? Math.round((winningSessions / completedSessions.length) * 100)
         : 0;
-
     return { activeSessions, totalPnL, winRate };
   };
 
   const { activeSessions, totalPnL, winRate } = calculateStats();
 
-  // Format session display data
   const formatSession = (session: Session) => {
     const startDate = new Date(session.start_date);
     const endDate = new Date(session.end_date);
-    const now = new Date();
-
-    const isActive = session.result === null;
-    const pnl = session.result
-      ? `${session.result >= 0 ? '+' : ''}$${session.result.toLocaleString()}`
-      : 'In Progress';
-
-    // Calculate duration or time elapsed
+    const resultValue = session.result
+      ? parseFloat(session.result as string)
+      : null;
+    const isActive = !session.is_completed;
+    const pnl =
+      resultValue !== null
+        ? `${resultValue >= 0 ? '+' : ''}$${resultValue.toLocaleString()}`
+        : 'In Progress';
     const duration = Math.ceil(
       (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)
     );
     const timeDisplay = `${duration}d planned`;
-
+    const startingCapitalValue = parseFloat(session.starting_capital as string);
     return {
       ...session,
       displayPnL: pnl,
       status: isActive ? 'Active' : 'Closed',
       timeDisplay,
+      displayCapital: startingCapitalValue.toLocaleString(),
+      numericResult: resultValue,
     };
   };
 
@@ -285,7 +281,7 @@ const TraderDashboard = () => {
   return (
     <div className="bg-black min-h-screen">
       <div className="relative isolate px-6 pt-14 lg:px-8">
-        {/* Purple blur effects */}
+        {/* Effects */}
         <div
           aria-hidden="true"
           className="absolute top-10 right-10 -z-10 transform-gpu overflow-hidden blur-3xl">
@@ -316,6 +312,12 @@ const TraderDashboard = () => {
                 <span className="text-gray-400">
                   Welcome back, {user ? user.username : 'Trader'}
                 </span>
+                <button
+                  onClick={handleLogout}
+                  className="flex items-center space-x-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors duration-200 font-medium">
+                  <LogOut size={18} />
+                  <span>Logout</span>
+                </button>
               </div>
 
               {error && (
@@ -337,12 +339,21 @@ const TraderDashboard = () => {
               Test your strategies with precision and confidence
             </p>
 
-            <button
-              onClick={() => setShowCreateForm(true)}
-              className="bg-purple-600 hover:bg-purple-700 text-white px-8 py-4 rounded-lg text-lg font-medium transition-all duration-200 flex items-center space-x-3 mx-auto">
-              <Plus size={24} />
-              <span>Create Session</span>
-            </button>
+            <div className="flex justify-center space-x-4">
+              <button
+                onClick={() => setShowCreateForm(true)}
+                className="bg-purple-600 hover:bg-purple-700 text-white px-8 py-4 rounded-lg text-lg font-medium transition-all duration-200 flex items-center space-x-3 mx-auto">
+                <Plus size={24} />
+                <span>Create Session</span>
+              </button>
+              {/* New Button to navigate to the journal entry page */}
+              <button
+                onClick={() => navigate('/journal/new')}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-4 rounded-lg text-lg font-medium transition-all duration-200 flex items-center space-x-3 mx-auto">
+                <BookOpen size={24} />
+                <span>Add Journal Entry</span>
+              </button>
+            </div>
           </div>
 
           {/* Quick Stats Bar */}
@@ -417,8 +428,8 @@ const TraderDashboard = () => {
                               {session.name}
                             </h4>
                             <p className="text-gray-400 text-sm">
-                              ${session.starting_capital.toLocaleString()}{' '}
-                              starting capital • {formattedSession.timeDisplay}
+                              ${formattedSession.displayCapital} starting
+                              capital • {formattedSession.timeDisplay}
                             </p>
                             <p className="text-gray-500 text-xs">
                               {new Date(
@@ -433,9 +444,9 @@ const TraderDashboard = () => {
                         <div className="flex items-center space-x-6">
                           <span
                             className={`text-lg font-medium ${
-                              session.result === null
+                              formattedSession.numericResult === null
                                 ? 'text-gray-400'
-                                : session.result >= 0
+                                : formattedSession.numericResult >= 0
                                 ? 'text-green-400'
                                 : 'text-red-400'
                             }`}>

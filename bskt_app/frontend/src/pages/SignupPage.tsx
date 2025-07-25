@@ -1,57 +1,94 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import '../Login.css';
 
 const SignupPage = () => {
-  const [fullName, setFullName] = useState('');
-  const [username, setUsername] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
+  // Form states
+  const [formData, setFormData] = useState({
+    fullName: '',
+    username: '',
+    email: '',
+    password: '',
+    confirmPassword: '',
+  });
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
   const navigate = useNavigate();
 
-  const handleSignup = async (event: React.FormEvent) => {
-    event.preventDefault();
-    setError('');
-    setSuccess('');
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value,
+    });
+  };
 
-    if (password !== confirmPassword) {
-      setError('Passwords do not match');
-      return;
-    }
-
-    // Prepare the data to match backend expectations
-    const data = {
-      full_name: fullName, // send as full_name to match backend
-      username,
-      email,
-      password,
-    };
+  const handleSignup = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setLoading(true);
 
     try {
+      // Validate form data
+      if (!formData.fullName.trim()) {
+        setError('Full name is required');
+        return;
+      }
+
+      if (!formData.username.trim()) {
+        setError('Username is required');
+        return;
+      }
+
+      if (!formData.email.trim()) {
+        setError('Email is required');
+        return;
+      }
+
+      if (formData.password.length < 6) {
+        setError('Password must be at least 6 characters long');
+        return;
+      }
+
+      if (formData.password !== formData.confirmPassword) {
+        setError('Passwords do not match');
+        return;
+      }
+
+      // Prepare signup data
+      const signupData = {
+        full_name: formData.fullName.trim(),
+        username: formData.username.trim(),
+        email: formData.email.trim(),
+        password: formData.password,
+      };
+
       const response = await fetch('http://localhost:8000/signup', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(data),
+        body: JSON.stringify(signupData),
       });
 
       if (response.ok) {
-        const user = await response.json();
-        setFullName('');
-        setUsername('');
-        setEmail('');
-        setPassword('');
-        setConfirmPassword('');
-        navigate(`/userdash/${user.id}`);
+        const userData = await response.json();
+
+        // Account created successfully, redirect to login
+        navigate('/login', {
+          state: {
+            message: 'Account created successfully! Please log in.',
+          },
+        });
       } else {
         const errorData = await response.json();
-        setError(errorData.detail || 'Signup failed');
+        setError(errorData.detail || 'Failed to create account');
       }
-    } catch {
-      setError('Network error');
+    } catch (err) {
+      setError('Network error. Please try again.');
+      console.error('Signup error:', err);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -76,56 +113,93 @@ const SignupPage = () => {
               <h1 className="text-5xl font-semibold tracking-tight text-balance text-purple-200 sm:text-7xl mb-8">
                 BKST.
               </h1>
+
               {error && (
-                <div style={{ color: 'red', marginBottom: '1rem' }}>
+                <div className="bg-red-900/30 border border-red-800 text-red-300 px-4 py-3 rounded-lg mb-4">
                   {error}
                 </div>
               )}
-              {success && (
-                <div style={{ color: 'green', marginBottom: '1rem' }}>
-                  {success}
-                </div>
-              )}
+
               <label htmlFor="fullName">Full Name</label>
               <input
                 type="text"
                 id="fullName"
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
+                name="fullName"
+                value={formData.fullName}
+                onChange={handleInputChange}
+                required
+                disabled={loading}
+                placeholder="Enter your full name"
               />
+
               <label htmlFor="username">Username</label>
               <input
                 type="text"
                 id="username"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
+                name="username"
+                value={formData.username}
+                onChange={handleInputChange}
                 required
+                disabled={loading}
+                placeholder="Choose a username"
               />
+
               <label htmlFor="email">Email</label>
               <input
                 type="email"
                 id="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                name="email"
+                value={formData.email}
+                onChange={handleInputChange}
                 required
+                disabled={loading}
+                placeholder="Enter your email"
               />
-              <label htmlFor="password">Create Password</label>
+
+              <label htmlFor="password">Password</label>
               <input
                 type="password"
                 id="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                name="password"
+                value={formData.password}
+                onChange={handleInputChange}
                 required
+                disabled={loading}
+                placeholder="Create a password"
+                minLength={6}
               />
+
               <label htmlFor="confirmPassword">Confirm Password</label>
               <input
                 type="password"
                 id="confirmPassword"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
+                name="confirmPassword"
+                value={formData.confirmPassword}
+                onChange={handleInputChange}
                 required
+                disabled={loading}
+                placeholder="Confirm your password"
+                minLength={6}
               />
-              <button type="submit">Create Account</button>
+
+              <button
+                type="submit"
+                disabled={loading}
+                className={loading ? 'opacity-50 cursor-not-allowed' : ''}>
+                {loading ? 'Creating Account...' : 'Create Account'}
+              </button>
+
+              <div className="w-full border-t border-purple-300/30 my-6"></div>
+              <div className="flex items-center justify-center gap-4 whitespace-nowrap">
+                <span className="text-purple-200 text-xs">
+                  Already have an account?
+                </span>
+                <a
+                  href="/login"
+                  className="text-purple-300 hover:text-purple-200 font-medium text-[19px]">
+                  Sign in
+                </a>
+              </div>
             </form>
           </div>
         </div>
