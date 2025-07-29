@@ -14,6 +14,8 @@ import {
 // --- Interface Definitions ---
 interface FormData {
   sessionName: string;
+  // NEW: Add symbol to form data
+  symbol: string;
   startDate: string;
   endDate: string;
   startingCapital: string;
@@ -22,12 +24,14 @@ interface FormData {
 interface Session {
   id: number;
   name: string;
+  symbol: string;
   start_date: string;
   end_date: string;
   starting_capital: number | string;
   result: number | string | null;
   created_at: string;
   is_completed: boolean;
+  current_balance: number | string | null;
 }
 
 interface JournalEntry {
@@ -35,7 +39,6 @@ interface JournalEntry {
   title: string;
   content: string;
   created_at: string;
-  // FIX: Make updated_at optional to match the backend schema
   updated_at: string | null;
 }
 
@@ -45,6 +48,9 @@ interface User {
   full_name: string;
   email: string;
 }
+
+// NEW: List of available symbols
+const availableSymbols = ['EUR/USD', 'GBP/JPY', 'GBP/EUR', 'BTC/USD'];
 
 const TraderDashboard = () => {
   const { userId } = useParams();
@@ -56,8 +62,11 @@ const TraderDashboard = () => {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [showCreateForm, setShowCreateForm] = useState<boolean>(false);
+
+  // Updated initial form state
   const [formData, setFormData] = useState<FormData>({
     sessionName: '',
+    symbol: availableSymbols[0], // Default to the first symbol
     startDate: '',
     endDate: '',
     startingCapital: '',
@@ -111,7 +120,6 @@ const TraderDashboard = () => {
         setError(
           err.message || 'A network error occurred while fetching data.'
         );
-        console.error(err);
       } finally {
         setLoading(false);
       }
@@ -134,8 +142,10 @@ const TraderDashboard = () => {
     setError(null);
     try {
       const token = getAuthToken();
+      // Add symbol to the request body
       const sessionData = {
         name: formData.sessionName.trim(),
+        symbol: formData.symbol,
         start_date: formData.startDate,
         end_date: formData.endDate,
         starting_capital: parseFloat(formData.startingCapital),
@@ -152,8 +162,10 @@ const TraderDashboard = () => {
         const newSession = await response.json();
         setSessions([newSession, ...sessions]);
         setShowCreateForm(false);
+        // Reset form to initial state
         setFormData({
           sessionName: '',
+          symbol: availableSymbols[0],
           startDate: '',
           endDate: '',
           startingCapital: '',
@@ -171,14 +183,26 @@ const TraderDashboard = () => {
 
   const calculateStats = () => {
     const activeSessions = sessions.filter((s) => !s.is_completed).length;
-    const totalPnL = sessions.reduce(
-      (sum, s) => sum + (s.result ? parseFloat(s.result as string) : 0),
-      0
-    );
+    const totalPnL = sessions.reduce((sum, session) => {
+      const startingCapitalValue = parseFloat(
+        session.starting_capital as string
+      );
+      let currentProfit = 0;
+      if (session.is_completed && session.result != null) {
+        currentProfit =
+          parseFloat(session.result as string) - startingCapitalValue;
+      } else if (!session.is_completed && session.current_balance != null) {
+        currentProfit =
+          parseFloat(session.current_balance as string) - startingCapitalValue;
+      }
+      return sum + currentProfit;
+    }, 0);
     const completedSessions = sessions.filter((s) => s.is_completed);
-    const winningSessions = completedSessions.filter(
-      (s) => (s.result ? parseFloat(s.result as string) : 0) > 0
-    ).length;
+    const winningSessions = completedSessions.filter((s) => {
+      const resultValue = s.result ? parseFloat(s.result as string) : 0;
+      const startingCapitalValue = parseFloat(s.starting_capital as string);
+      return resultValue > startingCapitalValue;
+    }).length;
     const winRate =
       completedSessions.length > 0
         ? Math.round((winningSessions / completedSessions.length) * 100)
@@ -218,14 +242,13 @@ const TraderDashboard = () => {
               </span>
               <button
                 onClick={handleLogout}
-                className="flex items-center space-x-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors duration-200 font-medium">
+                className="flex items-center space-x-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg">
                 <LogOut size={18} />
                 <span>Logout</span>
               </button>
             </div>
           </div>
         </nav>
-
         <div className="mx-auto max-w-6xl py-8">
           <div className="text-center mb-16">
             <h2 className="text-4xl font-light mb-4 text-white">
@@ -237,19 +260,18 @@ const TraderDashboard = () => {
             <div className="flex justify-center space-x-4">
               <button
                 onClick={() => setShowCreateForm(true)}
-                className="bg-purple-600 hover:bg-purple-700 text-white px-8 py-4 rounded-lg text-lg font-medium transition-all duration-200 flex items-center space-x-3">
+                className="bg-purple-600 hover:bg-purple-700 text-white px-8 py-4 rounded-lg text-lg font-medium flex items-center space-x-3">
                 <Plus size={24} />
                 <span>Create Session</span>
               </button>
               <button
                 onClick={() => navigate('/journal/new')}
-                className="bg-purple-600 hover:bg-purple-700 text-white px-8 py-4 rounded-lg text-lg font-medium transition-all duration-200 flex items-center space-x-3">
+                className="bg-purple-600 hover:bg-purple-700 text-white px-8 py-4 rounded-lg text-lg font-medium flex items-center space-x-3">
                 <BookOpen size={24} />
                 <span>Add Journal Entry</span>
               </button>
             </div>
           </div>
-
           <div className="flex justify-center space-x-16 mb-16">
             <div className="text-center">
               <div className="flex items-center justify-center mb-2">
@@ -273,7 +295,10 @@ const TraderDashboard = () => {
                     totalPnL >= 0 ? 'text-green-400' : 'text-red-400'
                   }`}>
                   {totalPnL >= 0 ? '+' : ''}
-                  {totalPnL.toLocaleString()}
+                  {totalPnL.toLocaleString(undefined, {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}
                 </span>
               </div>
               <p className="text-gray-400 text-sm">Total P&L</p>
@@ -288,7 +313,6 @@ const TraderDashboard = () => {
               <p className="text-gray-400 text-sm">Win Rate</p>
             </div>
           </div>
-
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 max-w-6xl mx-auto">
             <div>
               <h3 className="text-xl font-medium mb-6 text-center text-white">
@@ -304,24 +328,28 @@ const TraderDashboard = () => {
                     <div
                       key={s.id}
                       onClick={() => navigate(`/trading/${s.id}`)}
-                      className="border border-gray-800 rounded-lg p-4 hover:border-gray-700 transition-colors cursor-pointer hover:bg-gray-900/50">
+                      className="border border-gray-800 rounded-lg p-4 hover:border-gray-700 cursor-pointer hover:bg-gray-900/50">
                       <div className="flex items-center justify-between">
                         <h4 className="font-medium text-white">{s.name}</h4>
-                        <span
-                          className={`px-3 py-1 rounded-full text-sm ${
-                            !s.is_completed
-                              ? 'bg-green-900/30 text-green-300'
-                              : 'bg-gray-800/30 text-gray-400'
-                          }`}>
-                          {!s.is_completed ? 'Active' : 'Closed'}
-                        </span>
+                        <div className="flex items-center space-x-4">
+                          <span className="text-sm text-gray-400">
+                            {s.symbol}
+                          </span>
+                          <span
+                            className={`px-3 py-1 rounded-full text-sm ${
+                              !s.is_completed
+                                ? 'bg-green-900/30 text-green-300'
+                                : 'bg-gray-800/30 text-gray-400'
+                            }`}>
+                            {!s.is_completed ? 'Active' : 'Closed'}
+                          </span>
+                        </div>
                       </div>
                     </div>
                   ))}
                 </div>
               )}
             </div>
-
             <div>
               <h3 className="text-xl font-medium mb-6 text-center text-white">
                 Your Journal Entries
@@ -336,7 +364,7 @@ const TraderDashboard = () => {
                     <div
                       key={entry.id}
                       onClick={() => navigate(`/journal/edit/${entry.id}`)}
-                      className="border border-gray-800 rounded-lg p-4 hover:border-gray-700 transition-colors cursor-pointer hover:bg-gray-900/50">
+                      className="border border-gray-800 rounded-lg p-4 hover:border-gray-700 cursor-pointer hover:bg-gray-900/50">
                       <div className="flex items-center justify-between">
                         <h4 className="font-medium text-white truncate">
                           {entry.title}
@@ -355,7 +383,6 @@ const TraderDashboard = () => {
             </div>
           </div>
         </div>
-
         {showCreateForm && (
           <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50">
             <div className="bg-gray-900 border border-gray-800 rounded-lg p-8 max-w-md w-full mx-4">
@@ -383,6 +410,23 @@ const TraderDashboard = () => {
                     placeholder="e.g., EUR/USD Scalping Strategy"
                     required
                   />
+                </div>
+                {/* NEW: Dropdown for selecting a symbol */}
+                <div>
+                  <label className="block text-sm font-medium mb-2 text-white">
+                    Symbol
+                  </label>
+                  <select
+                    name="symbol"
+                    value={formData.symbol}
+                    onChange={handleInputChange}
+                    className="w-full bg-black border border-gray-700 rounded-lg px-4 py-3 text-white">
+                    {availableSymbols.map((s) => (
+                      <option key={s} value={s}>
+                        {s}
+                      </option>
+                    ))}
+                  </select>
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-2 text-white">
