@@ -20,7 +20,7 @@ class UserOut(BaseModel):
     email: EmailStr
 
     class Config:
-        from_attributes = True # Changed from orm_mode
+        from_attributes = True
 
 # Session schemas
 class SessionCreate(BaseModel):
@@ -37,7 +37,7 @@ class SessionOut(BaseModel):
     starting_capital: Decimal
     result: Optional[Decimal] = None
     created_at: datetime
-    updated_at: datetime
+    updated_at: Optional[datetime]
     current_candle_index: int
     current_balance: Optional[Decimal]
     position_quantity: Decimal
@@ -47,9 +47,8 @@ class SessionOut(BaseModel):
     is_completed: bool
     
     class Config:
-        from_attributes = True # Changed from orm_mode
+        from_attributes = True
 
-# Session state update schema
 class SessionStateUpdate(BaseModel):
     current_candle_index: int
     current_balance: Decimal
@@ -58,7 +57,6 @@ class SessionStateUpdate(BaseModel):
     trades_data: Optional[List[Any]]
     timeframe: str
 
-# Session completion schema
 class SessionComplete(BaseModel):
     result: Decimal
 
@@ -67,12 +65,18 @@ class JournalEntryCreate(BaseModel):
     title: str
     content: str
 
+class JournalEntryUpdate(BaseModel):
+    title: Optional[str] = None
+    content: Optional[str] = None
+
 class JournalEntryOut(BaseModel):
     id: int
     user_id: int
     title: str
     content: str
     created_at: datetime
+    # FIX: Make updated_at optional to handle cases where it might be null in the database
+    updated_at: Optional[datetime] = None
 
     class Config:
-        from_attributes = True # Changed from orm_mode
+        from_attributes = True
