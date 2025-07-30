@@ -21,7 +21,6 @@ class Session(Base):
     id = Column(Integer, primary_key=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     name = Column(String, nullable=True)
-    # NEW: Add the symbol for the trading session
     symbol = Column(String, nullable=False, default='EUR/USD')
     start_date = Column(Date, nullable=False)
     end_date = Column(Date, nullable=False)
@@ -34,8 +33,11 @@ class Session(Base):
     position_quantity = Column(Numeric, default=0)
     position_avg_price = Column(Numeric, default=0)
     trades_data = Column(Text, nullable=True)
-    timeframe = Column(String, default='15m')
+    # FIX: Changed default timeframe to match API requirements
+    timeframe = Column(String, default='15min')
     is_completed = Column(Boolean, default=False)
+    # NEW: Add a column to cache historical data to save API calls
+    historical_data_cache = Column(Text, nullable=True)
     user = relationship("User", back_populates="sessions")
 
 class JournalEntry(Base):

@@ -4,7 +4,7 @@ from fastapi import FastAPI, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordRequestForm, OAuth2PasswordBearer
-from datetime import date
+from datetime import date, datetime
 from typing import List
 import json
 from dotenv import load_dotenv
@@ -37,7 +37,6 @@ def get_db():
         db.close()
 
 # --- User & Auth Endpoints ---
-# (Signup, Login, get_current_user... these remain the same)
 @app.post("/signup", response_model=schemas.UserOut)
 def create_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
     db_user = db.query(models.User).filter(models.User.email == user.email).first()
@@ -78,14 +77,13 @@ def get_user_dashboard(user_id: int, db: Session = Depends(get_db), current_user
 # --- Session Endpoints ---
 @app.post("/sessions", response_model=schemas.SessionOut)
 def create_session(session: schemas.SessionCreate, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
-    # The symbol is now included in the session request body
+    # The session data is converted from the Pydantic model to a dict
     db_session = models.Session(user_id=current_user.id, **session.dict())
     db.add(db_session)
     db.commit()
     db.refresh(db_session)
     return db_session
 
-# (Other session endpoints remain the same)
 @app.get("/sessions", response_model=List[schemas.SessionOut])
 def get_user_sessions(current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
     return db.query(models.Session).filter(models.Session.user_id == current_user.id).order_by(models.Session.created_at.desc()).all()
@@ -104,6 +102,7 @@ def update_session_state(session_id: int, state: schemas.SessionStateUpdate, cur
         raise HTTPException(status_code=404, detail="Session not found")
     update_data = state.dict(exclude_unset=True)
     if 'trades_data' in update_data and update_data['trades_data'] is not None:
+        # Ensure trades_data is stored as a JSON string
         update_data['trades_data'] = json.dumps(update_data['trades_data'])
     for key, value in update_data.items():
         setattr(session, key, value)
@@ -112,7 +111,6 @@ def update_session_state(session_id: int, state: schemas.SessionStateUpdate, cur
     return session
 
 # --- Journal Endpoints ---
-# (These remain the same)
 @app.post("/journal-entries", response_model=schemas.JournalEntryOut, status_code=status.HTTP_201_CREATED)
 def create_journal_entry(entry: schemas.JournalEntryCreate, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
     db_entry = models.JournalEntry(user_id=current_user.id, title=entry.title, content=entry.content)
@@ -125,16 +123,14 @@ def create_journal_entry(entry: schemas.JournalEntryCreate, db: Session = Depend
 def get_user_journal_entries(db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
     return db.query(models.JournalEntry).filter(models.JournalEntry.user_id == current_user.id).order_by(models.JournalEntry.created_at.desc()).all()
 
-# --- NEW: Endpoint to fetch historical data ---
+
+# --- Endpoint to fetch historical data (WITH CACHING) ---
 @app.get("/api/historical-data/{session_id}")
 async def get_historical_data(
     session_id: int,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
 ):
-    """
-    Fetches historical data for a given session from the Twelve Data API.
-    """
     session = db.query(models.Session).filter(
         models.Session.id == session_id,
         models.Session.user_id == current_user.id
@@ -143,11 +139,21 @@ async def get_historical_data(
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
 
+    # 1. Check for cached data first
+    if session.historical_data_cache:
+        try:
+            # Load the cached data from the JSON string in the database
+            chart_data = json.loads(session.historical_data_cache)
+            return {"data": chart_data, "source": "cache"}
+        except json.JSONDecodeError:
+            # If cache is corrupted, proceed to fetch from API
+            pass
+
+    # 2. If no cache, fetch from the API
     api_key = os.getenv("TWELVE_DATA_API_KEY")
     if not api_key:
         raise HTTPException(status_code=500, detail="API key is not configured on the server.")
 
-    # Format dates for the API call
     start_date_str = session.start_date.strftime('%Y-%m-%d')
     end_date_str = session.end_date.strftime('%Y-%m-%d')
 
@@ -158,34 +164,48 @@ async def get_historical_data(
         f"start_date={start_date_str}&"
         f"end_date={end_date_str}&"
         f"apikey={api_key}&"
-        f"outputsize=5000" # Max output size
+        f"outputsize=5000"
     )
 
     async with httpx.AsyncClient() as client:
         try:
             response = await client.get(api_url)
-            response.raise_for_status()  # Raise an exception for bad status codes (4xx or 5xx)
+            # This will raise an HTTPError for 4xx/5xx responses
+            response.raise_for_status()
             api_data = response.json()
-
+            
+            # The API can return a 200 OK but still have an error message inside
             if api_data.get("status") != "ok":
+                # Provide a more specific error message from the API
                 raise HTTPException(status_code=400, detail=f"Error from Twelve Data API: {api_data.get('message', 'Unknown error')}")
 
-            # Transform the data into the format Lightweight Charts expects
-            chart_data = [
-                {
-                    "time": int(d["timestamp"]),
+            # FIX: Process 'datetime' string into a Unix timestamp
+            chart_data = []
+            for d in api_data.get("values", []):
+                # The API provides datetime as a string, e.g., "2023-09-15 15:59:00"
+                # We need to parse it and convert to a Unix timestamp for the chart
+                dt_object = datetime.strptime(d["datetime"], "%Y-%m-%d %H:%M:%S")
+                chart_data.append({
+                    "time": int(dt_object.timestamp()),
                     "open": float(d["open"]),
                     "high": float(d["high"]),
                     "low": float(d["low"]),
                     "close": float(d["close"]),
-                }
-                for d in api_data.get("values", [])
-            ]
-            # The API returns data in ascending order, so we reverse it to have the latest data first for our replay
+                })
+            
             chart_data.reverse()
             
-            return {"data": chart_data}
+            # 3. Save the successfully fetched data to the cache
+            session.historical_data_cache = json.dumps(chart_data)
+            db.commit()
+            
+            return {"data": chart_data, "source": "api"}
 
+        except httpx.HTTPStatusError as exc:
+            # Handle specific API errors (like 400 Bad Request)
+            error_response = exc.response.json()
+            error_message = error_response.get('message', str(exc))
+            raise HTTPException(status_code=exc.response.status_code, detail=f"Error from Twelve Data API: {error_message}")
         except httpx.RequestError as exc:
             raise HTTPException(status_code=503, detail=f"An error occurred while requesting from Twelve Data: {exc}")
         except Exception as e:

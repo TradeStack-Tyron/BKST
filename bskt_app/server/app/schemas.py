@@ -21,8 +21,9 @@ class UserOut(BaseModel):
 # --- Session Schemas ---
 class SessionCreate(BaseModel):
     name: str
-    # NEW: Add symbol to the creation schema
     symbol: str
+    # FIX: Add timeframe to the creation schema
+    timeframe: str
     start_date: date
     end_date: date
     starting_capital: Decimal
@@ -30,7 +31,6 @@ class SessionCreate(BaseModel):
 class SessionOut(BaseModel):
     id: int
     name: str
-    # NEW: Add symbol to the output schema
     symbol: str
     start_date: date
     end_date: date
@@ -75,7 +75,7 @@ class JournalEntryOut(BaseModel):
     class Config:
         from_attributes = True
 
-# --- NEW: Schema for historical data response ---
+# --- Historical data response schema ---
 class HistoricalDataPoint(BaseModel):
     time: int
     open: float

@@ -11,11 +11,14 @@ import {
   ChevronRight,
 } from 'lucide-react';
 
+// --- Type Definitions ---
+type TimeFrame = '1m' | '5m' | '15m' | '30m' | '4h' | '1d';
+
 // --- Interface Definitions ---
 interface FormData {
   sessionName: string;
-  // NEW: Add symbol to form data
   symbol: string;
+  timeframe: TimeFrame; // FIX: Add timeframe to form data
   startDate: string;
   endDate: string;
   startingCapital: string;
@@ -49,8 +52,15 @@ interface User {
   email: string;
 }
 
-// NEW: List of available symbols
 const availableSymbols = ['EUR/USD', 'GBP/JPY', 'GBP/EUR', 'BTC/USD'];
+const availableTimeframes: { value: TimeFrame; label: string }[] = [
+  { value: '1min', label: '1 Minute' },
+  { value: '5min', label: '5 Minutes' },
+  { value: '15min', label: '15 Minutes' },
+  { value: '30min', label: '30 Minutes' },
+  { value: '4h', label: '4 Hours' },
+  { value: '1day', label: '1 Day' },
+];
 
 const TraderDashboard = () => {
   const { userId } = useParams();
@@ -63,10 +73,10 @@ const TraderDashboard = () => {
   const [submitting, setSubmitting] = useState(false);
   const [showCreateForm, setShowCreateForm] = useState<boolean>(false);
 
-  // Updated initial form state
   const [formData, setFormData] = useState<FormData>({
     sessionName: '',
-    symbol: availableSymbols[0], // Default to the first symbol
+    symbol: availableSymbols[0],
+    timeframe: availableTimeframes[2].value, // Default to 15min
     startDate: '',
     endDate: '',
     startingCapital: '',
@@ -86,7 +96,6 @@ const TraderDashboard = () => {
       navigate('/login');
       return;
     }
-
     const fetchAllData = async () => {
       setLoading(true);
       setError(null);
@@ -103,28 +112,22 @@ const TraderDashboard = () => {
               headers: { Authorization: `Bearer ${token}` },
             }),
           ]);
-
         if (!userResponse.ok) throw new Error('Failed to fetch user data');
         if (!sessionsResponse.ok) throw new Error('Failed to fetch sessions');
         if (!journalsResponse.ok)
           throw new Error('Failed to fetch journal entries');
-
         const userData = await userResponse.json();
         const sessionsData = await sessionsResponse.json();
         const journalsData = await journalsResponse.json();
-
         setUser(userData);
         setSessions(sessionsData);
         setJournalEntries(journalsData);
       } catch (err: any) {
-        setError(
-          err.message || 'A network error occurred while fetching data.'
-        );
+        setError(err.message || 'A network error occurred.');
       } finally {
         setLoading(false);
       }
     };
-
     if (userId) {
       fetchAllData();
     }
@@ -142,10 +145,10 @@ const TraderDashboard = () => {
     setError(null);
     try {
       const token = getAuthToken();
-      // Add symbol to the request body
       const sessionData = {
         name: formData.sessionName.trim(),
         symbol: formData.symbol,
+        timeframe: formData.timeframe,
         start_date: formData.startDate,
         end_date: formData.endDate,
         starting_capital: parseFloat(formData.startingCapital),
@@ -162,10 +165,10 @@ const TraderDashboard = () => {
         const newSession = await response.json();
         setSessions([newSession, ...sessions]);
         setShowCreateForm(false);
-        // Reset form to initial state
         setFormData({
           sessionName: '',
           symbol: availableSymbols[0],
+          timeframe: '15min',
           startDate: '',
           endDate: '',
           startingCapital: '',
@@ -411,22 +414,39 @@ const TraderDashboard = () => {
                     required
                   />
                 </div>
-                {/* NEW: Dropdown for selecting a symbol */}
-                <div>
-                  <label className="block text-sm font-medium mb-2 text-white">
-                    Symbol
-                  </label>
-                  <select
-                    name="symbol"
-                    value={formData.symbol}
-                    onChange={handleInputChange}
-                    className="w-full bg-black border border-gray-700 rounded-lg px-4 py-3 text-white">
-                    {availableSymbols.map((s) => (
-                      <option key={s} value={s}>
-                        {s}
-                      </option>
-                    ))}
-                  </select>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-2 text-white">
+                      Symbol
+                    </label>
+                    <select
+                      name="symbol"
+                      value={formData.symbol}
+                      onChange={handleInputChange}
+                      className="w-full bg-black border border-gray-700 rounded-lg px-4 py-3 text-white">
+                      {availableSymbols.map((s) => (
+                        <option key={s} value={s}>
+                          {s}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-2 text-white">
+                      Timeframe
+                    </label>
+                    <select
+                      name="timeframe"
+                      value={formData.timeframe}
+                      onChange={handleInputChange}
+                      className="w-full bg-black border border-gray-700 rounded-lg px-4 py-3 text-white">
+                      {availableTimeframes.map((tf) => (
+                        <option key={tf.value} value={tf.value}>
+                          {tf.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-2 text-white">

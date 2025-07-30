@@ -58,18 +58,8 @@ interface Position {
   unrealizedPnL: number;
 }
 
-type TimeFrame =
-  | '1m'
-  | '5m'
-  | '15m'
-  | '30m'
-  | '1h'
-  | '2h'
-  | '4h'
-  | '6h'
-  | '12h'
-  | '1D'
-  | '1W';
+// FIX: Updated TimeFrame type to match Twelve Data API requirements
+type TimeFrame = '1min' | '5min' | '15min' | '30min' | '4h' | '1day';
 
 const TradingChart: React.FC = () => {
   const { sessionId } = useParams<{ sessionId: string }>();
@@ -82,7 +72,9 @@ const TradingChart: React.FC = () => {
   const [currentPrice, setCurrentPrice] = useState<number>(0);
   const [priceChange, setPriceChange] = useState<number>(0);
   const [priceChangePercent, setPriceChangePercent] = useState<number>(0);
-  const [selectedTimeframe, setSelectedTimeframe] = useState<TimeFrame>('15m');
+  // FIX: Updated default timeframe to the correct format
+  const [selectedTimeframe, setSelectedTimeframe] =
+    useState<TimeFrame>('15min');
   const [position, setPosition] = useState<Position>({
     quantity: 0,
     averagePrice: 0,
@@ -96,21 +88,17 @@ const TradingChart: React.FC = () => {
     'Loading trading session...'
   );
 
-  // Replay functionality
   const [allCandles, setAllCandles] = useState<CandlestickData[]>([]);
-  const [visibleCandles, setVisibleCandles] = useState<CandlestickData[]>([]);
   const [currentCandleIndex, setCurrentCandleIndex] = useState(20);
   const [isPlaying, setIsPlaying] = useState(false);
   const [playSpeed, setPlaySpeed] = useState(1000);
 
-  // Drawing tools
   const [activeDrawingTool, setActiveDrawingTool] = useState<string | null>(
     null
   );
 
   const getAuthToken = () => localStorage.getItem('access_token');
 
-  // --- Session State Persistence ---
   const saveSessionState = async (currentState: any) => {
     const token = getAuthToken();
     if (!token || !sessionId) return;
@@ -153,7 +141,6 @@ const TradingChart: React.FC = () => {
     debouncedSave,
   ]);
 
-  // --- Fetch Session and Historical Data ---
   useEffect(() => {
     const fetchInitialData = async () => {
       if (!sessionId) return;
@@ -217,14 +204,12 @@ const TradingChart: React.FC = () => {
       } catch (error: any) {
         setLoadingMessage(error.message || 'An unknown error occurred.');
       } finally {
-        // FIX: This now correctly sets loading to false after the fetch attempt is complete.
         setLoading(false);
       }
     };
     fetchInitialData();
   }, [sessionId, navigate]);
 
-  // --- Chart Initialization and Updates ---
   useEffect(() => {
     if (!chartContainerRef.current || loading || allCandles.length === 0)
       return;
@@ -277,7 +262,6 @@ const TradingChart: React.FC = () => {
   useEffect(() => {
     if (allCandles.length > 0) {
       const newVisibleCandles = allCandles.slice(0, currentCandleIndex + 1);
-      setVisibleCandles(newVisibleCandles);
       if (seriesRef.current) {
         seriesRef.current.setData(newVisibleCandles);
       }
@@ -295,7 +279,6 @@ const TradingChart: React.FC = () => {
     }
   }, [currentCandleIndex, allCandles]);
 
-  // --- Replay Controls ---
   useEffect(() => {
     let interval: NodeJS.Timeout;
     if (isPlaying && currentCandleIndex < allCandles.length - 1) {
@@ -323,7 +306,6 @@ const TradingChart: React.FC = () => {
     setActiveDrawingTool(activeDrawingTool === toolId ? null : toolId);
   };
 
-  // --- Trade Execution and P&L ---
   useEffect(() => {
     if (position.quantity !== 0 && currentPrice > 0) {
       const unrealizedPnL =
@@ -337,16 +319,14 @@ const TradingChart: React.FC = () => {
   const executeTrade = (type: 'BUY' | 'SELL') => {
     if (!currentPrice || tradeQuantity <= 0) return;
     const cost = currentPrice * tradeQuantity;
-
     if (type === 'BUY' && cost > balance) {
-      alert('Insufficient balance for this trade');
+      alert('Insufficient balance');
       return;
     }
     if (type === 'SELL' && tradeQuantity > position.quantity) {
-      alert('Insufficient position to sell');
+      alert('Insufficient position');
       return;
     }
-
     const trade: Trade = {
       id: Date.now().toString(),
       type,
@@ -354,9 +334,7 @@ const TradingChart: React.FC = () => {
       quantity: tradeQuantity,
       timestamp: new Date().toISOString(),
     };
-
     setTrades((prev) => [trade, ...prev]);
-
     if (type === 'BUY') {
       const newQuantity = position.quantity + tradeQuantity;
       const newAveragePrice =
@@ -389,14 +367,14 @@ const TradingChart: React.FC = () => {
     ? parseFloat(session.starting_capital as string)
     : 0;
 
+  // FIX: Updated timeframes to match user request and API format
   const timeframes: { value: TimeFrame; label: string }[] = [
-    { value: '1m', label: '1m' },
-    { value: '5m', label: '5m' },
-    { value: '15m', label: '15m' },
-    { value: '30m', label: '30m' },
-    { value: '1h', label: '1H' },
+    { value: '1min', label: '1min' },
+    { value: '5min', label: '5min' },
+    { value: '15min', label: '15min' },
+    { value: '30min', label: '30min' },
     { value: '4h', label: '4H' },
-    { value: '1D', label: '1D' },
+    { value: '1day', label: '1D' },
   ];
 
   if (loading) {
@@ -407,7 +385,6 @@ const TradingChart: React.FC = () => {
     );
   }
 
-  // If not loading but there are no candles, it means an error occurred during fetch
   if (!allCandles || allCandles.length === 0) {
     return (
       <div className="bg-black min-h-screen flex flex-col items-center justify-center p-4">
