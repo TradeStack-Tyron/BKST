@@ -16,6 +16,7 @@ function App() {
         <Route path="/dashboard/:userId" element={<UserDash />} />
         <Route path="/trading/:sessionId" element={<TradingChart />} />
         <Route path="/journal/new" element={<JournalEntry />} />
+        <Route path="/journal/edit/:journalId" element={<JournalEntry />} />
       </Routes>
     </Router>
   );

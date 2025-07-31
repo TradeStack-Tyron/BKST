@@ -7,11 +7,19 @@ import {
   TrendingUp,
   X,
   LogOut,
-  BookOpen, // New Icon
+  BookOpen,
+  ChevronRight,
+  Trash2,
 } from 'lucide-react';
 
+// --- Type Definitions ---
+type TimeFrame = '1min' | '5min' | '15min' | '30min' | '4h' | '1day';
+
+// --- Interface Definitions ---
 interface FormData {
   sessionName: string;
+  symbol: string;
+  timeframe: TimeFrame;
   startDate: string;
   endDate: string;
   startingCapital: string;
@@ -20,12 +28,22 @@ interface FormData {
 interface Session {
   id: number;
   name: string;
+  symbol: string;
   start_date: string;
   end_date: string;
   starting_capital: number | string;
   result: number | string | null;
   created_at: string;
   is_completed: boolean;
+  current_balance: number | string | null;
+}
+
+interface JournalEntry {
+  id: number;
+  title: string;
+  content: string;
+  created_at: string;
+  updated_at: string | null;
 }
 
 interface User {
@@ -35,32 +53,41 @@ interface User {
   email: string;
 }
 
+const availableSymbols = ['EUR/USD', 'GBP/JPY', 'GBP/EUR', 'BTC/USD'];
+const availableTimeframes: { value: TimeFrame; label: string }[] = [
+  { value: '1min', label: '1 Minute' },
+  { value: '5min', label: '5 Minutes' },
+  { value: '15min', label: '15 Minutes' },
+  { value: '30min', label: '30 Minutes' },
+  { value: '4h', label: '4 Hours' },
+  { value: '1day', label: '1 Day' },
+];
+
 const TraderDashboard = () => {
   const { userId } = useParams();
   const navigate = useNavigate();
   const [user, setUser] = useState<User | null>(null);
   const [sessions, setSessions] = useState<Session[]>([]);
+  const [journalEntries, setJournalEntries] = useState<JournalEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-
   const [showCreateForm, setShowCreateForm] = useState<boolean>(false);
+
   const [formData, setFormData] = useState<FormData>({
     sessionName: '',
+    symbol: availableSymbols[0],
+    timeframe: availableTimeframes[2].value,
     startDate: '',
     endDate: '',
     startingCapital: '',
   });
 
-  const getAuthToken = () => {
-    return localStorage.getItem('access_token');
-  };
+  const getAuthToken = () => localStorage.getItem('access_token');
 
   const handleLogout = () => {
     localStorage.removeItem('access_token');
     localStorage.removeItem('user_id');
-    setUser(null);
-    setSessions([]);
     navigate('/');
   };
 
@@ -68,76 +95,49 @@ const TraderDashboard = () => {
     const token = getAuthToken();
     if (!token) {
       navigate('/login');
+      return;
     }
-  }, [navigate]);
-
-  useEffect(() => {
-    const fetchUser = async () => {
-      if (!userId) return;
+    const fetchAllData = async () => {
+      setLoading(true);
+      setError(null);
       try {
-        const token = getAuthToken();
-        if (!token) {
-          setError('No authentication token found');
-          return;
-        }
-        const response = await fetch(
-          `http://localhost:8000/userdash/${userId}`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-              'Content-Type': 'application/json',
-            },
-          }
-        );
-        if (response.ok) {
-          const data = await response.json();
-          setUser(data);
-        } else {
-          setError('Failed to fetch user data');
-        }
-      } catch (err) {
-        setError('Network error occurred');
-      }
-    };
-    fetchUser();
-  }, [userId]);
-
-  useEffect(() => {
-    const fetchSessions = async () => {
-      try {
-        const token = getAuthToken();
-        if (!token) {
-          setError('No authentication token found');
-          return;
-        }
-        const response = await fetch('http://localhost:8000/sessions', {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-        });
-        if (response.ok) {
-          const data = await response.json();
-          setSessions(data);
-        } else {
-          setError('Failed to fetch sessions');
-        }
-      } catch (err) {
-        setError('Network error occurred');
+        const [userResponse, sessionsResponse, journalsResponse] =
+          await Promise.all([
+            fetch(`http://localhost:8000/userdash/${userId}`, {
+              headers: { Authorization: `Bearer ${token}` },
+            }),
+            fetch('http://localhost:8000/sessions', {
+              headers: { Authorization: `Bearer ${token}` },
+            }),
+            fetch('http://localhost:8000/journal-entries', {
+              headers: { Authorization: `Bearer ${token}` },
+            }),
+          ]);
+        if (!userResponse.ok) throw new Error('Failed to fetch user data');
+        if (!sessionsResponse.ok) throw new Error('Failed to fetch sessions');
+        if (!journalsResponse.ok)
+          throw new Error('Failed to fetch journal entries');
+        const userData = await userResponse.json();
+        const sessionsData = await sessionsResponse.json();
+        const journalsData = await journalsResponse.json();
+        setUser(userData);
+        setSessions(sessionsData);
+        setJournalEntries(journalsData);
+      } catch (err: any) {
+        setError(err.message || 'A network error occurred.');
       } finally {
         setLoading(false);
       }
     };
-    fetchSessions();
-  }, []);
+    if (userId) {
+      fetchAllData();
+    }
+  }, [userId, navigate]);
 
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ): void => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value,
-    });
+    setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
   const handleSubmit = async (): Promise<void> => {
@@ -146,32 +146,10 @@ const TraderDashboard = () => {
     setError(null);
     try {
       const token = getAuthToken();
-      if (!token) {
-        setError('No authentication token found');
-        navigate('/login');
-        return;
-      }
-      if (!formData.sessionName.trim()) {
-        setError('Session name is required');
-        return;
-      }
-      if (
-        !formData.startingCapital ||
-        parseFloat(formData.startingCapital) <= 0
-      ) {
-        setError('Starting capital must be greater than 0');
-        return;
-      }
-      if (!formData.startDate || !formData.endDate) {
-        setError('Both start and end dates are required');
-        return;
-      }
-      if (new Date(formData.startDate) >= new Date(formData.endDate)) {
-        setError('End date must be after start date');
-        return;
-      }
       const sessionData = {
         name: formData.sessionName.trim(),
+        symbol: formData.symbol,
+        timeframe: formData.timeframe,
         start_date: formData.startDate,
         end_date: formData.endDate,
         starting_capital: parseFloat(formData.startingCapital),
@@ -190,43 +168,83 @@ const TraderDashboard = () => {
         setShowCreateForm(false);
         setFormData({
           sessionName: '',
+          symbol: availableSymbols[0],
+          timeframe: '15min',
           startDate: '',
           endDate: '',
           startingCapital: '',
         });
-      } else if (response.status === 401) {
-        setError('Session expired. Please login again.');
-        localStorage.removeItem('access_token');
-        navigate('/login');
       } else {
         const errorData = await response.json();
         setError(errorData.detail || 'Failed to create session');
       }
     } catch (err) {
       setError('Network error occurred');
-      console.error('Error creating session:', err);
     } finally {
       setSubmitting(false);
     }
   };
 
+  // This function correctly handles the entire delete process.
+  const handleDeleteSession = async (sessionIdToDelete: number) => {
+    if (
+      !window.confirm(
+        'Are you sure you want to delete this session? This action cannot be undone.'
+      )
+    ) {
+      return;
+    }
+
+    const token = getAuthToken();
+    if (!token) {
+      navigate('/login');
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `http://localhost:8000/sessions/${sessionIdToDelete}`,
+        {
+          method: 'DELETE',
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
+      if (response.ok) {
+        setSessions((prevSessions) =>
+          prevSessions.filter((session) => session.id !== sessionIdToDelete)
+        );
+      } else {
+        const errorData = await response.json();
+        setError(errorData.detail || 'Failed to delete session.');
+      }
+    } catch (err: any) {
+      setError(err.message || 'A network error occurred.');
+    }
+  };
+
   const calculateStats = () => {
-    const activeSessions = sessions.filter(
-      (session) => !session.is_completed
-    ).length;
+    const activeSessions = sessions.filter((s) => !s.is_completed).length;
     const totalPnL = sessions.reduce((sum, session) => {
-      const resultValue = session.result
-        ? parseFloat(session.result as string)
-        : 0;
-      return sum + resultValue;
+      const startingCapitalValue = parseFloat(
+        session.starting_capital as string
+      );
+      let currentProfit = 0;
+      if (session.is_completed && session.result != null) {
+        currentProfit =
+          parseFloat(session.result as string) - startingCapitalValue;
+      } else if (!session.is_completed && session.current_balance != null) {
+        currentProfit =
+          parseFloat(session.current_balance as string) - startingCapitalValue;
+      }
+      return sum + currentProfit;
     }, 0);
-    const completedSessions = sessions.filter(
-      (session) => session.is_completed
-    );
-    const winningSessions = completedSessions.filter(
-      (session) =>
-        (session.result ? parseFloat(session.result as string) : 0) > 0
-    ).length;
+    const completedSessions = sessions.filter((s) => s.is_completed);
+    const winningSessions = completedSessions.filter((s) => {
+      const resultValue = s.result ? parseFloat(s.result as string) : 0;
+      const startingCapitalValue = parseFloat(s.starting_capital as string);
+      return resultValue > startingCapitalValue;
+    }).length;
     const winRate =
       completedSessions.length > 0
         ? Math.round((winningSessions / completedSessions.length) * 100)
@@ -236,101 +254,44 @@ const TraderDashboard = () => {
 
   const { activeSessions, totalPnL, winRate } = calculateStats();
 
-  const formatSession = (session: Session) => {
-    const startDate = new Date(session.start_date);
-    const endDate = new Date(session.end_date);
-    const resultValue = session.result
-      ? parseFloat(session.result as string)
-      : null;
-    const isActive = !session.is_completed;
-    const pnl =
-      resultValue !== null
-        ? `${resultValue >= 0 ? '+' : ''}$${resultValue.toLocaleString()}`
-        : 'In Progress';
-    const duration = Math.ceil(
-      (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)
-    );
-    const timeDisplay = `${duration}d planned`;
-    const startingCapitalValue = parseFloat(session.starting_capital as string);
-    return {
-      ...session,
-      displayPnL: pnl,
-      status: isActive ? 'Active' : 'Closed',
-      timeDisplay,
-      displayCapital: startingCapitalValue.toLocaleString(),
-      numericResult: resultValue,
-    };
-  };
-
-  if (loading) {
+  if (loading)
     return (
-      <div className="bg-black min-h-screen flex items-center justify-center">
-        <div className="text-white text-xl">Loading...</div>
+      <div className="bg-black min-h-screen flex items-center justify-center text-white text-xl">
+        Loading Dashboard...
       </div>
     );
-  }
-
-  if (error) {
+  if (error)
     return (
-      <div className="bg-black min-h-screen flex items-center justify-center">
-        <div className="text-red-400 text-xl">{error}</div>
+      <div className="bg-black min-h-screen flex items-center justify-center text-red-400 text-xl">
+        {error}
       </div>
     );
-  }
 
   return (
     <div className="bg-black min-h-screen">
       <div className="relative isolate px-6 pt-14 lg:px-8">
-        {/* Effects */}
         <div
           aria-hidden="true"
           className="absolute top-10 right-10 -z-10 transform-gpu overflow-hidden blur-3xl">
           <div className="relative w-96 h-96 bg-purple-600/20 rounded-full" />
         </div>
-        <div
-          aria-hidden="true"
-          className="absolute top-1/2 left-0 -z-10 transform-gpu overflow-hidden blur-3xl">
-          <div className="relative w-80 h-80 bg-purple-800/15 rounded-full" />
-        </div>
-        <div
-          aria-hidden="true"
-          className="absolute bottom-20 right-1/2 -z-10 transform-gpu overflow-hidden blur-3xl">
-          <div className="relative w-72 h-72 bg-purple-500/10 rounded-full" />
-        </div>
-        <div
-          aria-hidden="true"
-          className="absolute top-1/4 left-1/2 -z-10 transform-gpu overflow-hidden blur-3xl">
-          <div className="relative w-64 h-64 bg-purple-700/20 rounded-full" />
-        </div>
-
-        {/* Top Navigation */}
         <nav className="border-b border-gray-800 -mx-6 px-6 mb-8">
-          <div className="max-w-6xl mx-auto py-6">
-            <div className="flex items-center justify-between">
-              <h1 className="text-3xl font-bold text-purple-300">BKST</h1>
-              <div className="flex items-center space-x-8">
-                <span className="text-gray-400">
-                  Welcome back, {user ? user.username : 'Trader'}
-                </span>
-                <button
-                  onClick={handleLogout}
-                  className="flex items-center space-x-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors duration-200 font-medium">
-                  <LogOut size={18} />
-                  <span>Logout</span>
-                </button>
-              </div>
-
-              {error && (
-                <div className="bg-red-900/30 border border-red-800 text-red-300 px-4 py-3 rounded-lg">
-                  {error}
-                </div>
-              )}
+          <div className="max-w-6xl mx-auto py-6 flex items-center justify-between">
+            <h1 className="text-3xl font-bold text-purple-300">BKST</h1>
+            <div className="flex items-center space-x-8">
+              <span className="text-gray-400">
+                Welcome back, {user?.username || 'Trader'}
+              </span>
+              <button
+                onClick={handleLogout}
+                className="flex items-center space-x-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg">
+                <LogOut size={18} />
+                <span>Logout</span>
+              </button>
             </div>
           </div>
         </nav>
-
         <div className="mx-auto max-w-6xl py-8">
-          {/* Main Action Area */}
           <div className="text-center mb-16">
             <h2 className="text-4xl font-light mb-4 text-white">
               Your Trading Command Center
@@ -338,25 +299,21 @@ const TraderDashboard = () => {
             <p className="text-gray-400 text-lg mb-12">
               Test your strategies with precision and confidence
             </p>
-
             <div className="flex justify-center space-x-4">
               <button
                 onClick={() => setShowCreateForm(true)}
-                className="bg-purple-600 hover:bg-purple-700 text-white px-8 py-4 rounded-lg text-lg font-medium transition-all duration-200 flex items-center space-x-3 mx-auto">
+                className="bg-purple-600 hover:bg-purple-700 text-white px-8 py-4 rounded-lg text-lg font-medium flex items-center space-x-3">
                 <Plus size={24} />
                 <span>Create Session</span>
               </button>
-              {/* New Button to navigate to the journal entry page */}
               <button
                 onClick={() => navigate('/journal/new')}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-4 rounded-lg text-lg font-medium transition-all duration-200 flex items-center space-x-3 mx-auto">
+                className="bg-purple-600 hover:bg-purple-700 text-white px-8 py-4 rounded-lg text-lg font-medium flex items-center space-x-3">
                 <BookOpen size={24} />
                 <span>Add Journal Entry</span>
               </button>
             </div>
           </div>
-
-          {/* Quick Stats Bar */}
           <div className="flex justify-center space-x-16 mb-16">
             <div className="text-center">
               <div className="flex items-center justify-center mb-2">
@@ -367,7 +324,6 @@ const TraderDashboard = () => {
               </div>
               <p className="text-gray-400 text-sm">Active Sessions</p>
             </div>
-
             <div className="text-center">
               <div className="flex items-center justify-center mb-2">
                 <DollarSign
@@ -381,12 +337,14 @@ const TraderDashboard = () => {
                     totalPnL >= 0 ? 'text-green-400' : 'text-red-400'
                   }`}>
                   {totalPnL >= 0 ? '+' : ''}
-                  {totalPnL.toLocaleString()}
+                  {totalPnL.toLocaleString(undefined, {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}
                 </span>
               </div>
               <p className="text-gray-400 text-sm">Total P&L</p>
             </div>
-
             <div className="text-center">
               <div className="flex items-center justify-center mb-2">
                 <TrendingUp className="text-blue-400 mr-2" size={20} />
@@ -397,80 +355,86 @@ const TraderDashboard = () => {
               <p className="text-gray-400 text-sm">Win Rate</p>
             </div>
           </div>
-
-          {/* Sessions List */}
-          <div className="max-w-4xl mx-auto">
-            <h3 className="text-xl font-medium mb-6 text-center text-white">
-              Your Trading Sessions
-            </h3>
-            {sessions.length === 0 ? (
-              <div className="text-center py-12">
-                <p className="text-gray-400 text-lg mb-4">
-                  No sessions created yet
-                </p>
-                <p className="text-gray-500">
-                  Create your first trading session to get started!
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {sessions.map((session) => {
-                  const formattedSession = formatSession(session);
-                  return (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 max-w-6xl mx-auto">
+            <div>
+              <h3 className="text-xl font-medium mb-6 text-center text-white">
+                Your Trading Sessions
+              </h3>
+              {sessions.length === 0 ? (
+                <div className="text-center py-12">
+                  <p className="text-gray-400">No sessions created yet.</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {sessions.map((s) => (
                     <div
-                      key={session.id}
-                      onClick={() => navigate(`/trading/${session.id}`)}
-                      className="border border-gray-800 rounded-lg p-6 hover:border-gray-700 transition-colors cursor-pointer hover:bg-gray-900/50">
+                      key={s.id}
+                      onClick={() => navigate(`/trading/${s.id}`)}
+                      className="border border-gray-800 rounded-lg p-4 hover:border-gray-700 cursor-pointer hover:bg-gray-900/50 flex items-center justify-between">
+                      <div>
+                        <h4 className="font-medium text-white">{s.name}</h4>
+                        <span className="text-sm text-gray-400">
+                          {s.symbol}
+                        </span>
+                      </div>
+                      <div className="flex items-center space-x-4">
+                        <span
+                          className={`px-3 py-1 rounded-full text-sm ${
+                            !s.is_completed
+                              ? 'bg-green-900/30 text-green-300'
+                              : 'bg-gray-800/30 text-gray-400'
+                          }`}>
+                          {!s.is_completed ? 'Active' : 'Closed'}
+                        </span>
+                        {/* This button correctly calls the delete handler. */}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteSession(s.id);
+                          }}
+                          className="p-2 text-gray-500 hover:text-red-500 hover:bg-red-900/20 rounded-full transition-colors"
+                          title="Delete Session">
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div>
+              <h3 className="text-xl font-medium mb-6 text-center text-white">
+                Your Journal Entries
+              </h3>
+              {journalEntries.length === 0 ? (
+                <div className="text-center py-12">
+                  <p className="text-gray-400">No journal entries yet.</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {journalEntries.map((entry) => (
+                    <div
+                      key={entry.id}
+                      onClick={() => navigate(`/journal/edit/${entry.id}`)}
+                      className="border border-gray-800 rounded-lg p-4 hover:border-gray-700 cursor-pointer hover:bg-gray-900/50">
                       <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-6">
-                          <div>
-                            <h4 className="font-medium text-lg text-white">
-                              {session.name}
-                            </h4>
-                            <p className="text-gray-400 text-sm">
-                              ${formattedSession.displayCapital} starting
-                              capital • {formattedSession.timeDisplay}
-                            </p>
-                            <p className="text-gray-500 text-xs">
-                              {new Date(
-                                session.start_date
-                              ).toLocaleDateString()}{' '}
-                              -{' '}
-                              {new Date(session.end_date).toLocaleDateString()}
-                            </p>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center space-x-6">
-                          <span
-                            className={`text-lg font-medium ${
-                              formattedSession.numericResult === null
-                                ? 'text-gray-400'
-                                : formattedSession.numericResult >= 0
-                                ? 'text-green-400'
-                                : 'text-red-400'
-                            }`}>
-                            {formattedSession.displayPnL}
-                          </span>
-                          <span
-                            className={`px-3 py-1 rounded-full text-sm ${
-                              formattedSession.status === 'Active'
-                                ? 'bg-green-900/30 text-green-300 border border-green-800'
-                                : 'bg-gray-800/30 text-gray-400 border border-gray-700'
-                            }`}>
-                            {formattedSession.status}
-                          </span>
+                        <h4 className="font-medium text-white truncate">
+                          {entry.title}
+                        </h4>
+                        <div className="flex items-center space-x-4">
+                          <p className="text-gray-500 text-sm">
+                            {new Date(entry.created_at).toLocaleDateString()}
+                          </p>
+                          <ChevronRight size={18} className="text-gray-600" />
                         </div>
                       </div>
                     </div>
-                  );
-                })}
-              </div>
-            )}
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
-
-        {/* Create Session Modal */}
         {showCreateForm && (
           <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50">
             <div className="bg-gray-900 border border-gray-800 rounded-lg p-8 max-w-md w-full mx-4">
@@ -480,11 +444,10 @@ const TraderDashboard = () => {
                 </h3>
                 <button
                   onClick={() => setShowCreateForm(false)}
-                  className="text-gray-400 hover:text-white transition-colors">
+                  className="text-gray-400 hover:text-white">
                   <X size={24} />
                 </button>
               </div>
-
               <div className="space-y-6">
                 <div>
                   <label className="block text-sm font-medium mb-2 text-white">
@@ -495,12 +458,45 @@ const TraderDashboard = () => {
                     name="sessionName"
                     value={formData.sessionName}
                     onChange={handleInputChange}
-                    className="w-full bg-black border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    className="w-full bg-black border border-gray-700 rounded-lg px-4 py-3 text-white"
                     placeholder="e.g., EUR/USD Scalping Strategy"
                     required
                   />
                 </div>
-
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-2 text-white">
+                      Symbol
+                    </label>
+                    <select
+                      name="symbol"
+                      value={formData.symbol}
+                      onChange={handleInputChange}
+                      className="w-full bg-black border border-gray-700 rounded-lg px-4 py-3 text-white">
+                      {availableSymbols.map((s) => (
+                        <option key={s} value={s}>
+                          {s}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-2 text-white">
+                      Timeframe
+                    </label>
+                    <select
+                      name="timeframe"
+                      value={formData.timeframe}
+                      onChange={handleInputChange}
+                      className="w-full bg-black border border-gray-700 rounded-lg px-4 py-3 text-white">
+                      {availableTimeframes.map((tf) => (
+                        <option key={tf.value} value={tf.value}>
+                          {tf.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
                 <div>
                   <label className="block text-sm font-medium mb-2 text-white">
                     Starting Capital ($)
@@ -510,13 +506,12 @@ const TraderDashboard = () => {
                     name="startingCapital"
                     value={formData.startingCapital}
                     onChange={handleInputChange}
-                    className="w-full bg-black border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    className="w-full bg-black border border-gray-700 rounded-lg px-4 py-3 text-white"
                     placeholder="10000"
                     min="100"
                     required
                   />
                 </div>
-
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium mb-2 text-white">
@@ -527,11 +522,10 @@ const TraderDashboard = () => {
                       name="startDate"
                       value={formData.startDate}
                       onChange={handleInputChange}
-                      className="w-full bg-black border border-gray-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                      className="w-full bg-black border border-gray-700 rounded-lg px-4 py-3 text-white"
                       required
                     />
                   </div>
-
                   <div>
                     <label className="block text-sm font-medium mb-2 text-white">
                       End Date
@@ -541,12 +535,11 @@ const TraderDashboard = () => {
                       name="endDate"
                       value={formData.endDate}
                       onChange={handleInputChange}
-                      className="w-full bg-black border border-gray-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                      className="w-full bg-black border border-gray-700 rounded-lg px-4 py-3 text-white"
                       required
                     />
                   </div>
                 </div>
-
                 <div className="flex space-x-4 pt-4">
                   <button
                     onClick={handleSubmit}
@@ -557,12 +550,12 @@ const TraderDashboard = () => {
                       !formData.endDate ||
                       submitting
                     }
-                    className="flex-1 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white py-3 rounded-lg transition-colors">
-                    {submitting ? 'Creating...' : 'Create Session'}
+                    className="flex-1 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 text-white py-3 rounded-lg">
+                    Create Session
                   </button>
                   <button
                     onClick={() => setShowCreateForm(false)}
-                    className="flex-1 bg-gray-700 hover:bg-gray-600 text-white py-3 rounded-lg transition-colors">
+                    className="flex-1 bg-gray-700 hover:bg-gray-600 text-white py-3 rounded-lg">
                     Cancel
                   </button>
                 </div>

@@ -22,14 +22,14 @@ import {
   Minus,
   Square,
   TrendingDownIcon as TrendLine,
-  Move,
 } from 'lucide-react';
 import { debounce } from 'lodash';
 
-// Updated Session interface to handle string values from the API for Decimal types
+// --- Interface Definitions ---
 interface Session {
   id: number;
   name: string;
+  symbol: string;
   start_date: string;
   end_date: string;
   starting_capital: number | string;
@@ -58,24 +58,8 @@ interface Position {
   unrealizedPnL: number;
 }
 
-interface DrawingTool {
-  id: string;
-  type: 'horizontal_line' | 'trend_line' | 'rectangle';
-  active: boolean;
-}
-
-type TimeFrame =
-  | '1m'
-  | '5m'
-  | '15m'
-  | '30m'
-  | '1h'
-  | '2h'
-  | '4h'
-  | '6h'
-  | '12h'
-  | '1D'
-  | '1W';
+// FIX: Updated TimeFrame type to match Twelve Data API requirements
+type TimeFrame = '1min' | '5min' | '15min' | '30min' | '4h' | '1day';
 
 const TradingChart: React.FC = () => {
   const { sessionId } = useParams<{ sessionId: string }>();
@@ -88,7 +72,9 @@ const TradingChart: React.FC = () => {
   const [currentPrice, setCurrentPrice] = useState<number>(0);
   const [priceChange, setPriceChange] = useState<number>(0);
   const [priceChangePercent, setPriceChangePercent] = useState<number>(0);
-  const [selectedTimeframe, setSelectedTimeframe] = useState<TimeFrame>('15m');
+  // FIX: Updated default timeframe to the correct format
+  const [selectedTimeframe, setSelectedTimeframe] =
+    useState<TimeFrame>('15min');
   const [position, setPosition] = useState<Position>({
     quantity: 0,
     averagePrice: 0,
@@ -98,24 +84,24 @@ const TradingChart: React.FC = () => {
   const [balance, setBalance] = useState<number>(0);
   const [tradeQuantity, setTradeQuantity] = useState<number>(1);
   const [loading, setLoading] = useState(true);
+  const [loadingMessage, setLoadingMessage] = useState(
+    'Loading trading session...'
+  );
 
-  // Replay functionality
   const [allCandles, setAllCandles] = useState<CandlestickData[]>([]);
-  const [visibleCandles, setVisibleCandles] = useState<CandlestickData[]>([]);
   const [currentCandleIndex, setCurrentCandleIndex] = useState(20);
   const [isPlaying, setIsPlaying] = useState(false);
   const [playSpeed, setPlaySpeed] = useState(1000);
 
-  // Drawing tools
   const [activeDrawingTool, setActiveDrawingTool] = useState<string | null>(
     null
   );
-  const [drawnLines, setDrawnLines] = useState<any[]>([]);
+
+  const getAuthToken = () => localStorage.getItem('access_token');
 
   const saveSessionState = async (currentState: any) => {
-    const token = localStorage.getItem('access_token');
+    const token = getAuthToken();
     if (!token || !sessionId) return;
-
     try {
       await fetch(`http://localhost:8000/sessions/${sessionId}/state`, {
         method: 'PUT',
@@ -129,14 +115,12 @@ const TradingChart: React.FC = () => {
       console.error('Failed to save session state:', error);
     }
   };
-
   const debouncedSave = useCallback(debounce(saveSessionState, 2000), [
     sessionId,
   ]);
 
   useEffect(() => {
     if (loading || !session) return;
-
     const currentState = {
       current_candle_index: currentCandleIndex,
       current_balance: balance,
@@ -158,171 +142,132 @@ const TradingChart: React.FC = () => {
   ]);
 
   useEffect(() => {
-    const fetchSession = async () => {
+    const fetchInitialData = async () => {
       if (!sessionId) return;
-      try {
-        const token = localStorage.getItem('access_token');
-        if (!token) {
-          navigate('/login');
-          return;
-        }
+      const token = getAuthToken();
+      if (!token) {
+        navigate('/login');
+        return;
+      }
 
-        const response = await fetch(
+      try {
+        setLoading(true);
+        setLoadingMessage('Loading trading session...');
+
+        const sessionResponse = await fetch(
           `http://localhost:8000/sessions/${sessionId}`,
-          {
-            headers: { Authorization: `Bearer ${token}` },
-          }
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        if (!sessionResponse.ok)
+          throw new Error('Failed to fetch session details.');
+        const sessionData: Session = await sessionResponse.json();
+        setSession(sessionData);
+
+        const initialBalance =
+          sessionData.current_balance != null
+            ? parseFloat(sessionData.current_balance as string)
+            : parseFloat(sessionData.starting_capital as string);
+        setBalance(initialBalance);
+        setPosition({
+          quantity: parseFloat(sessionData.position_quantity as string),
+          averagePrice: parseFloat(sessionData.position_avg_price as string),
+          unrealizedPnL: 0,
+        });
+        setCurrentCandleIndex(sessionData.current_candle_index);
+        setSelectedTimeframe(sessionData.timeframe);
+        setTrades(
+          sessionData.trades_data ? JSON.parse(sessionData.trades_data) : []
         );
 
-        if (response.ok) {
-          const sessionData: Session = await response.json();
-          setSession(sessionData);
-
-          // --- FIX: Parse string values from API to numbers ---
-          const initialBalance =
-            sessionData.current_balance != null
-              ? parseFloat(sessionData.current_balance as string)
-              : parseFloat(sessionData.starting_capital as string);
-          setBalance(initialBalance);
-
-          setPosition({
-            quantity: parseFloat(sessionData.position_quantity as string),
-            averagePrice: parseFloat(sessionData.position_avg_price as string),
-            unrealizedPnL: 0, // Will be recalculated
-          });
-
-          setCurrentCandleIndex(sessionData.current_candle_index);
-          setSelectedTimeframe(sessionData.timeframe);
-
-          try {
-            setTrades(
-              sessionData.trades_data ? JSON.parse(sessionData.trades_data) : []
-            );
-          } catch (e) {
-            console.error('Failed to parse trades data', e);
-            setTrades([]);
-          }
-        } else {
-          console.error('Failed to fetch session');
-          navigate('/login');
+        setLoadingMessage(
+          `Fetching historical data for ${sessionData.symbol}...`
+        );
+        const dataResponse = await fetch(
+          `http://localhost:8000/api/historical-data/${sessionId}`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        if (!dataResponse.ok) {
+          const errorData = await dataResponse.json();
+          throw new Error(
+            errorData.detail || 'Failed to fetch historical chart data.'
+          );
         }
-      } catch (error) {
-        console.error('Error fetching session:', error);
+        const chartData = await dataResponse.json();
+
+        if (chartData.data && chartData.data.length > 0) {
+          setAllCandles(chartData.data);
+        } else {
+          throw new Error(
+            'No historical data returned for the selected period. Please check the date range and symbol.'
+          );
+        }
+      } catch (error: any) {
+        setLoadingMessage(error.message || 'An unknown error occurred.');
       } finally {
         setLoading(false);
       }
     };
-
-    fetchSession();
+    fetchInitialData();
   }, [sessionId, navigate]);
 
-  // The rest of your component logic remains largely the same.
-  // I'm including the full component for completeness.
-
-  const timeframes: { value: TimeFrame; label: string }[] = [
-    { value: '1m', label: '1m' },
-    { value: '5m', label: '5m' },
-    { value: '15m', label: '15m' },
-    { value: '30m', label: '30m' },
-    { value: '1h', label: '1H' },
-    { value: '2h', label: '2H' },
-    { value: '4h', label: '4H' },
-    { value: '6h', label: '6H' },
-    { value: '12h', label: '12H' },
-    { value: '1D', label: '1D' },
-    { value: '1W', label: '1W' },
-  ];
-
-  const drawingTools: DrawingTool[] = [
-    { id: 'horizontal_line', type: 'horizontal_line', active: false },
-    { id: 'trend_line', type: 'trend_line', active: false },
-    { id: 'rectangle', type: 'rectangle', active: false },
-  ];
-
-  const generateFakeData = (timeframe: TimeFrame): CandlestickData[] => {
-    const data: CandlestickData[] = [];
-    const startDate = new Date('2024-01-01');
-    let currentDate = new Date(startDate);
-    let basePrice = 150;
-
-    const intervalMinutes = {
-      '1m': 1,
-      '5m': 5,
-      '15m': 15,
-      '30m': 30,
-      '1h': 60,
-      '2h': 120,
-      '4h': 240,
-      '6h': 360,
-      '12h': 720,
-      '1D': 1440,
-      '1W': 10080,
-    }[timeframe];
-
-    const dataPoints = 200;
-
-    for (let i = 0; i < dataPoints; i++) {
-      const timestamp = Math.floor(currentDate.getTime() / 1000) as Time;
-      const volatilityMultiplier = 0.015;
-      const trend = (Math.random() - 0.5) * 0.0005;
-      const change = (Math.random() - 0.5) * volatilityMultiplier + trend;
-
-      const open = basePrice;
-      const close = open * (1 + change);
-      const high =
-        Math.max(open, close) *
-        (1 + Math.random() * volatilityMultiplier * 0.5);
-      const low =
-        Math.min(open, close) *
-        (1 - Math.random() * volatilityMultiplier * 0.5);
-
-      data.push({
-        time: timestamp,
-        open: Number(open.toFixed(4)),
-        high: Number(high.toFixed(4)),
-        low: Number(low.toFixed(4)),
-        close: Number(close.toFixed(4)),
-      });
-
-      basePrice = close;
-      currentDate = new Date(
-        currentDate.getTime() + intervalMinutes * 60 * 1000
-      );
-    }
-    return data;
-  };
-
   useEffect(() => {
-    let interval: NodeJS.Timeout;
-    if (isPlaying && currentCandleIndex < allCandles.length - 1) {
-      interval = setInterval(() => {
-        setCurrentCandleIndex((prev) => {
-          if (prev >= allCandles.length - 1) {
-            setIsPlaying(false);
-            return prev;
-          }
-          return prev + 1;
-        });
-      }, playSpeed);
-    }
-    return () => {
-      if (interval) clearInterval(interval);
+    if (!chartContainerRef.current || loading || allCandles.length === 0)
+      return;
+
+    const chart = createChart(chartContainerRef.current, {
+      width: chartContainerRef.current.clientWidth,
+      height: 600,
+      layout: {
+        background: { type: ColorType.Solid, color: '#000000' },
+        textColor: '#d1d4dc',
+      },
+      grid: { vertLines: { visible: false }, horzLines: { visible: false } },
+      crosshair: {
+        mode: 1,
+        vertLine: { color: '#9089fc', width: 1, style: 2 },
+        horzLine: { color: '#9089fc', width: 1, style: 2 },
+      },
+      rightPriceScale: { borderColor: '#2a2e39', textColor: '#d1d4dc' },
+      timeScale: {
+        borderColor: '#2a2e39',
+        timeVisible: true,
+        secondsVisible: false,
+      },
+    });
+
+    const candlestickSeries = chart.addCandlestickSeries({
+      upColor: '#26a69a',
+      downColor: '#ef5350',
+      borderVisible: false,
+      wickUpColor: '#26a69a',
+      wickDownColor: '#ef5350',
+    });
+
+    chartRef.current = chart;
+    seriesRef.current = candlestickSeries;
+
+    const handleResize = () => {
+      if (chartContainerRef.current && chart) {
+        chart.applyOptions({ width: chartContainerRef.current.clientWidth });
+      }
     };
-  }, [isPlaying, currentCandleIndex, allCandles.length, playSpeed]);
+
+    window.addEventListener('resize', handleResize);
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      chart.remove();
+    };
+  }, [loading, allCandles]);
 
   useEffect(() => {
     if (allCandles.length > 0) {
       const newVisibleCandles = allCandles.slice(0, currentCandleIndex + 1);
-      setVisibleCandles(newVisibleCandles);
-
       if (seriesRef.current) {
         seriesRef.current.setData(newVisibleCandles);
       }
-
       if (newVisibleCandles.length > 0) {
         const lastCandle = newVisibleCandles[newVisibleCandles.length - 1];
         setCurrentPrice(lastCandle.close);
-
         if (newVisibleCandles.length > 1) {
           const firstCandle = newVisibleCandles[0];
           const change = lastCandle.close - firstCandle.open;
@@ -334,73 +279,17 @@ const TradingChart: React.FC = () => {
     }
   }, [currentCandleIndex, allCandles]);
 
-  const handleBackToDashboard = () => {
-    const userId = localStorage.getItem('user_id');
-    if (userId) {
-      navigate(`/dashboard/${userId}`);
-    } else {
-      navigate('/login');
-    }
-  };
-
   useEffect(() => {
-    if (!chartContainerRef.current || loading) return;
-
-    try {
-      const chart = createChart(chartContainerRef.current, {
-        width: chartContainerRef.current.clientWidth,
-        height: 600,
-        layout: {
-          background: { type: ColorType.Solid, color: '#000000' },
-          textColor: '#d1d4dc',
-        },
-        grid: { vertLines: { visible: false }, horzLines: { visible: false } },
-        crosshair: {
-          mode: 1,
-          vertLine: { color: '#9089fc', width: 1, style: 2 },
-          horzLine: { color: '#9089fc', width: 1, style: 2 },
-        },
-        rightPriceScale: { borderColor: '#2a2e39', textColor: '#d1d4dc' },
-        timeScale: {
-          borderColor: '#2a2e39',
-          timeVisible: true,
-          secondsVisible: false,
-        },
-      });
-
-      const candlestickSeries = chart.addCandlestickSeries({
-        upColor: '#26a69a',
-        downColor: '#ef5350',
-        borderVisible: false,
-        wickUpColor: '#26a69a',
-        wickDownColor: '#ef5350',
-      });
-
-      const fakeData = generateFakeData(selectedTimeframe);
-      setAllCandles(fakeData);
-
-      chartRef.current = chart;
-      seriesRef.current = candlestickSeries;
-
-      const handleResize = () => {
-        if (chartContainerRef.current && chart) {
-          chart.applyOptions({ width: chartContainerRef.current.clientWidth });
-        }
-      };
-
-      window.addEventListener('resize', handleResize);
-      return () => {
-        window.removeEventListener('resize', handleResize);
-        chart.remove();
-      };
-    } catch (error) {
-      console.error('Error initializing chart:', error);
+    let interval: NodeJS.Timeout;
+    if (isPlaying && currentCandleIndex < allCandles.length - 1) {
+      interval = setInterval(() => {
+        setCurrentCandleIndex((prev) =>
+          prev < allCandles.length - 1 ? prev + 1 : prev
+        );
+      }, playSpeed);
     }
-  }, [loading, selectedTimeframe]);
-
-  const handleDrawingToolSelect = (toolId: string) => {
-    setActiveDrawingTool(activeDrawingTool === toolId ? null : toolId);
-  };
+    return () => clearInterval(interval);
+  }, [isPlaying, currentCandleIndex, allCandles.length, playSpeed]);
 
   const handlePlay = () => setIsPlaying(!isPlaying);
   const handleStepForward = () => {
@@ -410,11 +299,11 @@ const TradingChart: React.FC = () => {
   const handleStepBack = () => {
     if (currentCandleIndex > 0) setCurrentCandleIndex((prev) => prev - 1);
   };
-
   const handleTimeframeChange = (timeframe: TimeFrame) => {
     setSelectedTimeframe(timeframe);
-    setIsPlaying(false);
-    setCurrentCandleIndex(20);
+  };
+  const handleDrawingToolSelect = (toolId: string) => {
+    setActiveDrawingTool(activeDrawingTool === toolId ? null : toolId);
   };
 
   useEffect(() => {
@@ -422,22 +311,22 @@ const TradingChart: React.FC = () => {
       const unrealizedPnL =
         (currentPrice - position.averagePrice) * position.quantity;
       setPosition((prev) => ({ ...prev, unrealizedPnL }));
+    } else {
+      setPosition((prev) => ({ ...prev, unrealizedPnL: 0 }));
     }
   }, [currentPrice, position.quantity, position.averagePrice]);
 
   const executeTrade = (type: 'BUY' | 'SELL') => {
     if (!currentPrice || tradeQuantity <= 0) return;
     const cost = currentPrice * tradeQuantity;
-
     if (type === 'BUY' && cost > balance) {
-      alert('Insufficient balance for this trade');
+      alert('Insufficient balance');
       return;
     }
     if (type === 'SELL' && tradeQuantity > position.quantity) {
-      alert('Insufficient position to sell');
+      alert('Insufficient position');
       return;
     }
-
     const trade: Trade = {
       id: Date.now().toString(),
       type,
@@ -445,9 +334,7 @@ const TradingChart: React.FC = () => {
       quantity: tradeQuantity,
       timestamp: new Date().toISOString(),
     };
-
     setTrades((prev) => [trade, ...prev]);
-
     if (type === 'BUY') {
       const newQuantity = position.quantity + tradeQuantity;
       const newAveragePrice =
@@ -470,7 +357,7 @@ const TradingChart: React.FC = () => {
         averagePrice: newQuantity > 0 ? prev.averagePrice : 0,
         unrealizedPnL: 0,
       }));
-      setBalance((prev) => prev + cost);
+      setBalance((prev) => prev + cost + profit);
       trade.profit = profit;
     }
   };
@@ -480,25 +367,51 @@ const TradingChart: React.FC = () => {
     ? parseFloat(session.starting_capital as string)
     : 0;
 
+  // FIX: Updated timeframes to match user request and API format
+  const timeframes: { value: TimeFrame; label: string }[] = [
+    { value: '1min', label: '1min' },
+    { value: '5min', label: '5min' },
+    { value: '15min', label: '15min' },
+    { value: '30min', label: '30min' },
+    { value: '4h', label: '4H' },
+    { value: '1day', label: '1D' },
+  ];
+
   if (loading) {
     return (
       <div className="bg-black min-h-screen flex items-center justify-center">
-        <div className="text-purple-200 text-xl">
-          Loading trading session...
+        <div className="text-purple-200 text-xl">{loadingMessage}</div>
+      </div>
+    );
+  }
+
+  if (!allCandles || allCandles.length === 0) {
+    return (
+      <div className="bg-black min-h-screen flex flex-col items-center justify-center p-4">
+        <div className="text-red-400 text-xl text-center mb-6">
+          {loadingMessage}
         </div>
+        <button
+          onClick={() =>
+            navigate(`/dashboard/${localStorage.getItem('user_id')}`)
+          }
+          className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-2 rounded-lg font-medium">
+          Back to Dashboard
+        </button>
       </div>
     );
   }
 
   return (
     <div className="bg-black min-h-screen text-white">
-      {/* Top Navigation */}
       <div className="border-b border-purple-900/30 px-4 py-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
             <button
-              onClick={handleBackToDashboard}
-              className="text-purple-200 hover:text-white transition-colors p-2 rounded hover:bg-purple-900/20">
+              onClick={() =>
+                navigate(`/dashboard/${localStorage.getItem('user_id')}`)
+              }
+              className="text-purple-200 hover:text-white p-2 rounded hover:bg-purple-900/20">
               <ArrowLeft size={20} />
             </button>
             <div className="flex items-center space-x-3">
@@ -507,6 +420,9 @@ const TradingChart: React.FC = () => {
                 {session?.name || 'Trading Session'}
               </h1>
             </div>
+          </div>
+          <div className="font-semibold text-lg text-purple-300">
+            {session?.symbol}
           </div>
           <div className="flex items-center space-x-6">
             <div className="text-right">
@@ -530,8 +446,6 @@ const TradingChart: React.FC = () => {
           </div>
         </div>
       </div>
-
-      {/* Chart Controls & Drawing Tools */}
       <div className="border-b border-purple-900/30 px-4 py-2">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-1">
@@ -584,8 +498,8 @@ const TradingChart: React.FC = () => {
             <div className="flex items-center space-x-2">
               <button
                 onClick={handleStepBack}
-                disabled={currentCandleIndex <= 0}
-                className="p-2 text-purple-200 hover:text-white hover:bg-purple-900/20 rounded disabled:opacity-50 disabled:cursor-not-allowed">
+                disabled={currentCandleIndex <= 20}
+                className="p-2 text-purple-200 hover:text-white hover:bg-purple-900/20 rounded disabled:opacity-50">
                 <SkipBack size={16} />
               </button>
               <button
@@ -596,7 +510,7 @@ const TradingChart: React.FC = () => {
               <button
                 onClick={handleStepForward}
                 disabled={currentCandleIndex >= allCandles.length - 1}
-                className="p-2 text-purple-200 hover:text-white hover:bg-purple-900/20 rounded disabled:opacity-50 disabled:cursor-not-allowed">
+                className="p-2 text-purple-200 hover:text-white hover:bg-purple-900/20 rounded disabled:opacity-50">
                 <SkipForward size={16} />
               </button>
             </div>
@@ -611,15 +525,13 @@ const TradingChart: React.FC = () => {
           </div>
         </div>
       </div>
-
       <div className="p-4">
         <div className="mb-6">
           <div className="bg-black rounded border border-purple-900/30 flex justify-center items-center relative">
-            <div ref={chartContainerRef} className="w-full" />
+            <div ref={chartContainerRef} className="w-full h-[600px]" />
             {activeDrawingTool && (
               <div className="absolute top-4 left-4 bg-purple-900/80 text-purple-200 px-3 py-1 rounded text-sm">
-                Drawing: {activeDrawingTool.replace('_', ' ')} - Click and drag
-                on chart
+                Drawing: {activeDrawingTool.replace('_', ' ')}
               </div>
             )}
           </div>
@@ -698,7 +610,7 @@ const TradingChart: React.FC = () => {
                 type="number"
                 value={tradeQuantity}
                 onChange={(e) => setTradeQuantity(Number(e.target.value))}
-                className="w-full bg-purple-900/20 border border-purple-700/50 rounded px-3 py-2 text-purple-200 placeholder-purple-300"
+                className="w-full bg-purple-900/20 border border-purple-700/50 rounded px-3 py-2 text-purple-200"
                 placeholder="Quantity"
                 min="0.01"
                 step="0.01"
@@ -706,13 +618,13 @@ const TradingChart: React.FC = () => {
               <div className="grid grid-cols-2 gap-2">
                 <button
                   onClick={() => executeTrade('BUY')}
-                  className="bg-green-600 hover:bg-green-700 text-white py-2.5 rounded font-medium transition-colors flex items-center justify-center space-x-2">
+                  className="bg-green-600 hover:bg-green-700 text-white py-2.5 rounded font-medium flex items-center justify-center space-x-2">
                   <TrendingUp size={16} />
                   <span>BUY</span>
                 </button>
                 <button
                   onClick={() => executeTrade('SELL')}
-                  className="bg-red-600 hover:bg-red-700 text-white py-2.5 rounded font-medium transition-colors flex items-center justify-center space-x-2">
+                  className="bg-red-600 hover:bg-red-700 text-white py-2.5 rounded font-medium flex items-center justify-center space-x-2">
                   <TrendingDown size={16} />
                   <span>SELL</span>
                 </button>
