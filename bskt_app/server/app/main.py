@@ -110,6 +110,23 @@ def update_session_state(session_id: int, state: schemas.SessionStateUpdate, cur
     db.refresh(session)
     return session
 
+# --- main.py ---
+
+# NEW: Endpoint to Delete a session
+@app.delete("/sessions/{session_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_session(session_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    session = db.query(models.Session).filter(
+        models.Session.id == session_id,
+        models.Session.user_id == current_user.id
+    ).first()
+
+    if not session:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session not found")
+
+    db.delete(session)
+    db.commit()
+    return
+
 # --- Journal Endpoints ---
 @app.post("/journal-entries", response_model=schemas.JournalEntryOut, status_code=status.HTTP_201_CREATED)
 def create_journal_entry(entry: schemas.JournalEntryCreate, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):

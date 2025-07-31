@@ -9,16 +9,17 @@ import {
   LogOut,
   BookOpen,
   ChevronRight,
+  Trash2,
 } from 'lucide-react';
 
 // --- Type Definitions ---
-type TimeFrame = '1m' | '5m' | '15m' | '30m' | '4h' | '1d';
+type TimeFrame = '1min' | '5min' | '15min' | '30min' | '4h' | '1day';
 
 // --- Interface Definitions ---
 interface FormData {
   sessionName: string;
   symbol: string;
-  timeframe: TimeFrame; // FIX: Add timeframe to form data
+  timeframe: TimeFrame;
   startDate: string;
   endDate: string;
   startingCapital: string;
@@ -76,7 +77,7 @@ const TraderDashboard = () => {
   const [formData, setFormData] = useState<FormData>({
     sessionName: '',
     symbol: availableSymbols[0],
-    timeframe: availableTimeframes[2].value, // Default to 15min
+    timeframe: availableTimeframes[2].value,
     startDate: '',
     endDate: '',
     startingCapital: '',
@@ -181,6 +182,44 @@ const TraderDashboard = () => {
       setError('Network error occurred');
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  // This function correctly handles the entire delete process.
+  const handleDeleteSession = async (sessionIdToDelete: number) => {
+    if (
+      !window.confirm(
+        'Are you sure you want to delete this session? This action cannot be undone.'
+      )
+    ) {
+      return;
+    }
+
+    const token = getAuthToken();
+    if (!token) {
+      navigate('/login');
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `http://localhost:8000/sessions/${sessionIdToDelete}`,
+        {
+          method: 'DELETE',
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
+      if (response.ok) {
+        setSessions((prevSessions) =>
+          prevSessions.filter((session) => session.id !== sessionIdToDelete)
+        );
+      } else {
+        const errorData = await response.json();
+        setError(errorData.detail || 'Failed to delete session.');
+      }
+    } catch (err: any) {
+      setError(err.message || 'A network error occurred.');
     }
   };
 
@@ -331,22 +370,32 @@ const TraderDashboard = () => {
                     <div
                       key={s.id}
                       onClick={() => navigate(`/trading/${s.id}`)}
-                      className="border border-gray-800 rounded-lg p-4 hover:border-gray-700 cursor-pointer hover:bg-gray-900/50">
-                      <div className="flex items-center justify-between">
+                      className="border border-gray-800 rounded-lg p-4 hover:border-gray-700 cursor-pointer hover:bg-gray-900/50 flex items-center justify-between">
+                      <div>
                         <h4 className="font-medium text-white">{s.name}</h4>
-                        <div className="flex items-center space-x-4">
-                          <span className="text-sm text-gray-400">
-                            {s.symbol}
-                          </span>
-                          <span
-                            className={`px-3 py-1 rounded-full text-sm ${
-                              !s.is_completed
-                                ? 'bg-green-900/30 text-green-300'
-                                : 'bg-gray-800/30 text-gray-400'
-                            }`}>
-                            {!s.is_completed ? 'Active' : 'Closed'}
-                          </span>
-                        </div>
+                        <span className="text-sm text-gray-400">
+                          {s.symbol}
+                        </span>
+                      </div>
+                      <div className="flex items-center space-x-4">
+                        <span
+                          className={`px-3 py-1 rounded-full text-sm ${
+                            !s.is_completed
+                              ? 'bg-green-900/30 text-green-300'
+                              : 'bg-gray-800/30 text-gray-400'
+                          }`}>
+                          {!s.is_completed ? 'Active' : 'Closed'}
+                        </span>
+                        {/* This button correctly calls the delete handler. */}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteSession(s.id);
+                          }}
+                          className="p-2 text-gray-500 hover:text-red-500 hover:bg-red-900/20 rounded-full transition-colors"
+                          title="Delete Session">
+                          <Trash2 size={16} />
+                        </button>
                       </div>
                     </div>
                   ))}
