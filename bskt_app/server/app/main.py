@@ -21,13 +21,24 @@ models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
 
+# --- MODIFIED FOR DEPLOYMENT ---
+# This section now reads the frontend's URL from an environment variable.
+# It defaults to your localhost address for local development.
+CLIENT_URL = os.getenv("CLIENT_URL", "http://localhost:5173")
+
+origins = [
+    CLIENT_URL
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+# --- END OF MODIFICATION ---
+
 
 def get_db():
     db = SessionLocal()
