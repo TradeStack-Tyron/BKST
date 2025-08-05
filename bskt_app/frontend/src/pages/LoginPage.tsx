@@ -11,6 +11,9 @@ const LoginPage = () => {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
+  // FIX: Add apiUrl for deployment
+  const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+
   // Check for a success message from the signup page
   const successMessage = location.state?.message;
 
@@ -32,7 +35,8 @@ const LoginPage = () => {
       formBody.append('username', formData.email); // FastAPI's OAuth2 form uses 'username' for the email field
       formBody.append('password', formData.password);
 
-      const response = await fetch('http://localhost:8000/login', {
+      // FIX: Use apiUrl for fetch call
+      const response = await fetch(`${apiUrl}/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
@@ -46,9 +50,6 @@ const LoginPage = () => {
         // Save the token and user ID to local storage
         localStorage.setItem('access_token', data.access_token);
         localStorage.setItem('user_id', data.user_id);
-
-        // *** FIX: The incorrect fetch call has been removed from here. ***
-        // The only action needed is to navigate to the dashboard.
 
         navigate(`/dashboard/${data.user_id}`);
       } else {

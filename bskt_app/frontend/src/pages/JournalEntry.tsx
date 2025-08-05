@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react'; // FIX: Removed unused 'React' import.
 import { useNavigate, useParams } from 'react-router-dom';
 import { Book, ArrowLeft, Save, Trash2 } from 'lucide-react';
 
@@ -14,11 +14,7 @@ const JournalEntryPage = () => {
 
   const isEditing = Boolean(journalId);
 
-  // --- MODIFIED FOR DEPLOYMENT ---
-  // This variable reads the backend URL from environment variables.
-  // It defaults to your localhost address for easy local development.
   const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-  // --- END OF MODIFICATION ---
 
   const getAuthToken = () => localStorage.getItem('access_token');
 
@@ -36,11 +32,9 @@ const JournalEntryPage = () => {
           return;
         }
 
-        // --- MODIFIED FOR DEPLOYMENT ---
         const response = await fetch(`${apiUrl}/journal-entries/${journalId}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
-        // --- END OF MODIFICATION ---
 
         if (response.ok) {
           const data = await response.json();
@@ -77,11 +71,9 @@ const JournalEntryPage = () => {
       return;
     }
 
-    // --- MODIFIED FOR DEPLOYMENT ---
     const url = isEditing
       ? `${apiUrl}/journal-entries/${journalId}`
       : `${apiUrl}/journal-entries`;
-    // --- END OF MODIFICATION ---
 
     const method = isEditing ? 'PUT' : 'POST';
 
@@ -124,12 +116,10 @@ const JournalEntryPage = () => {
     const token = getAuthToken();
 
     try {
-      // --- MODIFIED FOR DEPLOYMENT ---
       const response = await fetch(`${apiUrl}/journal-entries/${journalId}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       });
-      // --- END OF MODIFICATION ---
 
       if (response.ok) {
         const userId = localStorage.getItem('user_id');

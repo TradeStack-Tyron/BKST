@@ -6,7 +6,7 @@ import {
   type IChartApi,
   type ISeriesApi,
   type CandlestickData,
-  type Time,
+  // FIX: Removed unused 'Time' import to resolve TS6133 error.
 } from 'lightweight-charts';
 import {
   ArrowLeft,
@@ -58,7 +58,6 @@ interface Position {
   unrealizedPnL: number;
 }
 
-// FIX: Updated TimeFrame type to match Twelve Data API requirements
 type TimeFrame = '1min' | '5min' | '15min' | '30min' | '4h' | '1day';
 
 const TradingChart: React.FC = () => {
@@ -68,11 +67,13 @@ const TradingChart: React.FC = () => {
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null);
 
+  // FIX: Add apiUrl for deployment
+  const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+
   const [session, setSession] = useState<Session | null>(null);
   const [currentPrice, setCurrentPrice] = useState<number>(0);
   const [priceChange, setPriceChange] = useState<number>(0);
   const [priceChangePercent, setPriceChangePercent] = useState<number>(0);
-  // FIX: Updated default timeframe to the correct format
   const [selectedTimeframe, setSelectedTimeframe] =
     useState<TimeFrame>('15min');
   const [position, setPosition] = useState<Position>({
@@ -91,7 +92,8 @@ const TradingChart: React.FC = () => {
   const [allCandles, setAllCandles] = useState<CandlestickData[]>([]);
   const [currentCandleIndex, setCurrentCandleIndex] = useState(20);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [playSpeed, setPlaySpeed] = useState(1000);
+  // FIX: Removed unused 'setPlaySpeed' to resolve TS6133 error.
+  const [playSpeed] = useState(1000);
 
   const [activeDrawingTool, setActiveDrawingTool] = useState<string | null>(
     null
@@ -103,7 +105,8 @@ const TradingChart: React.FC = () => {
     const token = getAuthToken();
     if (!token || !sessionId) return;
     try {
-      await fetch(`http://localhost:8000/sessions/${sessionId}/state`, {
+      // FIX: Use apiUrl for fetch call
+      await fetch(`${apiUrl}/sessions/${sessionId}/state`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -154,10 +157,10 @@ const TradingChart: React.FC = () => {
         setLoading(true);
         setLoadingMessage('Loading trading session...');
 
-        const sessionResponse = await fetch(
-          `http://localhost:8000/sessions/${sessionId}`,
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
+        // FIX: Use apiUrl for fetch call
+        const sessionResponse = await fetch(`${apiUrl}/sessions/${sessionId}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
         if (!sessionResponse.ok)
           throw new Error('Failed to fetch session details.');
         const sessionData: Session = await sessionResponse.json();
@@ -182,8 +185,9 @@ const TradingChart: React.FC = () => {
         setLoadingMessage(
           `Fetching historical data for ${sessionData.symbol}...`
         );
+        // FIX: Use apiUrl for fetch call
         const dataResponse = await fetch(
-          `http://localhost:8000/api/historical-data/${sessionId}`,
+          `${apiUrl}/api/historical-data/${sessionId}`,
           { headers: { Authorization: `Bearer ${token}` } }
         );
         if (!dataResponse.ok) {
@@ -208,7 +212,7 @@ const TradingChart: React.FC = () => {
       }
     };
     fetchInitialData();
-  }, [sessionId, navigate]);
+  }, [sessionId, navigate, apiUrl]);
 
   useEffect(() => {
     if (!chartContainerRef.current || loading || allCandles.length === 0)
@@ -367,7 +371,6 @@ const TradingChart: React.FC = () => {
     ? parseFloat(session.starting_capital as string)
     : 0;
 
-  // FIX: Updated timeframes to match user request and API format
   const timeframes: { value: TimeFrame; label: string }[] = [
     { value: '1min', label: '1min' },
     { value: '5min', label: '5min' },

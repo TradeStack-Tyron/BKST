@@ -15,6 +15,8 @@ const SignupPage = () => {
   const [loading, setLoading] = useState(false);
 
   const navigate = useNavigate();
+  // FIX: Add apiUrl for deployment
+  const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({
@@ -63,7 +65,8 @@ const SignupPage = () => {
         password: formData.password,
       };
 
-      const response = await fetch('http://localhost:8000/signup', {
+      // FIX: Use apiUrl for fetch call
+      const response = await fetch(`${apiUrl}/signup`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -72,7 +75,9 @@ const SignupPage = () => {
       });
 
       if (response.ok) {
-        const userData = await response.json();
+        // FIX: Removed unused 'userData' variable to resolve TS6133 error.
+        // The response body doesn't need to be read here.
+        await response.json();
 
         // Account created successfully, redirect to login
         navigate('/login', {
