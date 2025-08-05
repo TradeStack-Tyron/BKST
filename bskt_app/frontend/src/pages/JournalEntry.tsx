@@ -14,6 +14,12 @@ const JournalEntryPage = () => {
 
   const isEditing = Boolean(journalId);
 
+  // --- MODIFIED FOR DEPLOYMENT ---
+  // This variable reads the backend URL from environment variables.
+  // It defaults to your localhost address for easy local development.
+  const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+  // --- END OF MODIFICATION ---
+
   const getAuthToken = () => localStorage.getItem('access_token');
 
   useEffect(() => {
@@ -30,12 +36,11 @@ const JournalEntryPage = () => {
           return;
         }
 
-        const response = await fetch(
-          `http://localhost:8000/journal-entries/${journalId}`,
-          {
-            headers: { Authorization: `Bearer ${token}` },
-          }
-        );
+        // --- MODIFIED FOR DEPLOYMENT ---
+        const response = await fetch(`${apiUrl}/journal-entries/${journalId}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        // --- END OF MODIFICATION ---
 
         if (response.ok) {
           const data = await response.json();
@@ -54,7 +59,7 @@ const JournalEntryPage = () => {
     };
 
     fetchEntry();
-  }, [journalId, isEditing, navigate]);
+  }, [journalId, isEditing, navigate, apiUrl]);
 
   const handleSave = async () => {
     if (!title.trim() || !content.trim()) {
@@ -72,9 +77,11 @@ const JournalEntryPage = () => {
       return;
     }
 
+    // --- MODIFIED FOR DEPLOYMENT ---
     const url = isEditing
-      ? `http://localhost:8000/journal-entries/${journalId}`
-      : 'http://localhost:8000/journal-entries';
+      ? `${apiUrl}/journal-entries/${journalId}`
+      : `${apiUrl}/journal-entries`;
+    // --- END OF MODIFICATION ---
 
     const method = isEditing ? 'PUT' : 'POST';
 
@@ -117,13 +124,12 @@ const JournalEntryPage = () => {
     const token = getAuthToken();
 
     try {
-      const response = await fetch(
-        `http://localhost:8000/journal-entries/${journalId}`,
-        {
-          method: 'DELETE',
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
+      // --- MODIFIED FOR DEPLOYMENT ---
+      const response = await fetch(`${apiUrl}/journal-entries/${journalId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      // --- END OF MODIFICATION ---
 
       if (response.ok) {
         const userId = localStorage.getItem('user_id');

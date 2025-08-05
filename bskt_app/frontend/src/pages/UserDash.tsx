@@ -74,6 +74,12 @@ const TraderDashboard = () => {
   const [submitting, setSubmitting] = useState(false);
   const [showCreateForm, setShowCreateForm] = useState<boolean>(false);
 
+  // --- MODIFIED FOR DEPLOYMENT ---
+  // This variable reads the backend URL from environment variables.
+  // It defaults to your localhost address for easy local development.
+  const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+  // --- END OF MODIFICATION ---
+
   const [formData, setFormData] = useState<FormData>({
     sessionName: '',
     symbol: availableSymbols[0],
@@ -101,18 +107,20 @@ const TraderDashboard = () => {
       setLoading(true);
       setError(null);
       try {
+        // --- MODIFIED FOR DEPLOYMENT ---
         const [userResponse, sessionsResponse, journalsResponse] =
           await Promise.all([
-            fetch(`http://localhost:8000/userdash/${userId}`, {
+            fetch(`${apiUrl}/userdash/${userId}`, {
               headers: { Authorization: `Bearer ${token}` },
             }),
-            fetch('http://localhost:8000/sessions', {
+            fetch(`${apiUrl}/sessions`, {
               headers: { Authorization: `Bearer ${token}` },
             }),
-            fetch('http://localhost:8000/journal-entries', {
+            fetch(`${apiUrl}/journal-entries`, {
               headers: { Authorization: `Bearer ${token}` },
             }),
           ]);
+        // --- END OF MODIFICATION ---
         if (!userResponse.ok) throw new Error('Failed to fetch user data');
         if (!sessionsResponse.ok) throw new Error('Failed to fetch sessions');
         if (!journalsResponse.ok)
@@ -132,7 +140,7 @@ const TraderDashboard = () => {
     if (userId) {
       fetchAllData();
     }
-  }, [userId, navigate]);
+  }, [userId, navigate, apiUrl]);
 
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
@@ -154,7 +162,8 @@ const TraderDashboard = () => {
         end_date: formData.endDate,
         starting_capital: parseFloat(formData.startingCapital),
       };
-      const response = await fetch('http://localhost:8000/sessions', {
+      // --- MODIFIED FOR DEPLOYMENT ---
+      const response = await fetch(`${apiUrl}/sessions`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -162,6 +171,7 @@ const TraderDashboard = () => {
         },
         body: JSON.stringify(sessionData),
       });
+      // --- END OF MODIFICATION ---
       if (response.ok) {
         const newSession = await response.json();
         setSessions([newSession, ...sessions]);
@@ -185,7 +195,6 @@ const TraderDashboard = () => {
     }
   };
 
-  // This function correctly handles the entire delete process.
   const handleDeleteSession = async (sessionIdToDelete: number) => {
     if (
       !window.confirm(
@@ -202,13 +211,12 @@ const TraderDashboard = () => {
     }
 
     try {
-      const response = await fetch(
-        `http://localhost:8000/sessions/${sessionIdToDelete}`,
-        {
-          method: 'DELETE',
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
+      // --- MODIFIED FOR DEPLOYMENT ---
+      const response = await fetch(`${apiUrl}/sessions/${sessionIdToDelete}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      // --- END OF MODIFICATION ---
 
       if (response.ok) {
         setSessions((prevSessions) =>
