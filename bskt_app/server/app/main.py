@@ -110,9 +110,6 @@ def update_session_state(session_id: int, state: schemas.SessionStateUpdate, cur
     db.refresh(session)
     return session
 
-# --- main.py ---
-
-# NEW: Endpoint to Delete a session
 @app.delete("/sessions/{session_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_session(session_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
     session = db.query(models.Session).filter(
@@ -139,6 +136,63 @@ def create_journal_entry(entry: schemas.JournalEntryCreate, db: Session = Depend
 @app.get("/journal-entries", response_model=List[schemas.JournalEntryOut])
 def get_user_journal_entries(db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
     return db.query(models.JournalEntry).filter(models.JournalEntry.user_id == current_user.id).order_by(models.JournalEntry.created_at.desc()).all()
+
+@app.get("/journal-entries/{journal_id}", response_model=schemas.JournalEntryOut)
+def get_journal_entry(journal_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    entry = db.query(models.JournalEntry).filter(
+        models.JournalEntry.id == journal_id,
+        models.JournalEntry.user_id == current_user.id
+    ).first()
+
+    if not entry:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Journal entry not found or you do not have permission to view it."
+        )
+    return entry
+
+@app.put("/journal-entries/{journal_id}", response_model=schemas.JournalEntryOut)
+def update_journal_entry(journal_id: int, updated_entry: schemas.JournalEntryUpdate, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    db_entry = db.query(models.JournalEntry).filter(
+        models.JournalEntry.id == journal_id,
+        models.JournalEntry.user_id == current_user.id
+    ).first()
+
+    if not db_entry:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Journal entry not found or you do not have permission to update it."
+        )
+    
+    update_data = updated_entry.dict(exclude_unset=True)
+    for key, value in update_data.items():
+        setattr(db_entry, key, value)
+    
+    db_entry.updated_at = datetime.utcnow()
+
+    db.commit()
+    db.refresh(db_entry)
+    return db_entry
+
+# ADDED: Endpoint to Delete a Journal Entry
+@app.delete("/journal-entries/{journal_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_journal_entry(journal_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    entry_query = db.query(models.JournalEntry).filter(
+        models.JournalEntry.id == journal_id,
+        models.JournalEntry.user_id == current_user.id
+    )
+    
+    entry = entry_query.first()
+
+    if not entry:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Journal entry not found or you do not have permission to delete it."
+        )
+
+    entry_query.delete(synchronize_session=False)
+    db.commit()
+    return
 
 
 # --- Endpoint to fetch historical data (WITH CACHING) ---
@@ -187,20 +241,14 @@ async def get_historical_data(
     async with httpx.AsyncClient() as client:
         try:
             response = await client.get(api_url)
-            # This will raise an HTTPError for 4xx/5xx responses
             response.raise_for_status()
             api_data = response.json()
             
-            # The API can return a 200 OK but still have an error message inside
             if api_data.get("status") != "ok":
-                # Provide a more specific error message from the API
                 raise HTTPException(status_code=400, detail=f"Error from Twelve Data API: {api_data.get('message', 'Unknown error')}")
 
-            # FIX: Process 'datetime' string into a Unix timestamp
             chart_data = []
             for d in api_data.get("values", []):
-                # The API provides datetime as a string, e.g., "2023-09-15 15:59:00"
-                # We need to parse it and convert to a Unix timestamp for the chart
                 dt_object = datetime.strptime(d["datetime"], "%Y-%m-%d %H:%M:%S")
                 chart_data.append({
                     "time": int(dt_object.timestamp()),
@@ -212,14 +260,12 @@ async def get_historical_data(
             
             chart_data.reverse()
             
-            # 3. Save the successfully fetched data to the cache
             session.historical_data_cache = json.dumps(chart_data)
             db.commit()
             
             return {"data": chart_data, "source": "api"}
 
         except httpx.HTTPStatusError as exc:
-            # Handle specific API errors (like 400 Bad Request)
             error_response = exc.response.json()
             error_message = error_response.get('message', str(exc))
             raise HTTPException(status_code=exc.response.status_code, detail=f"Error from Twelve Data API: {error_message}")
