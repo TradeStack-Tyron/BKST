@@ -21,23 +21,17 @@ models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
 
-# --- MODIFIED FOR DEPLOYMENT ---
-# This section now reads the frontend's URL from an environment variable.
-# It defaults to your localhost address for local development.
-CLIENT_URL = os.getenv("CLIENT_URL", "http://localhost:5173")
-
-origins = [
-    CLIENT_URL
-]
-
+# --- FINAL, MORE ROBUST CORS CONFIGURATION ---
+# This uses a Regular Expression to flexibly match allowed origins.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    # This regex allows your specific live frontend URL AND localhost for development.
+    allow_origin_regex=r"https://bkst-frontend\.onrender\.com|http://localhost:5173",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
-# --- END OF MODIFICATION ---
+# --- END OF NEW CONFIGURATION ---
 
 
 def get_db():
@@ -88,7 +82,6 @@ def get_user_dashboard(user_id: int, db: Session = Depends(get_db), current_user
 # --- Session Endpoints ---
 @app.post("/sessions", response_model=schemas.SessionOut)
 def create_session(session: schemas.SessionCreate, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
-    # The session data is converted from the Pydantic model to a dict
     db_session = models.Session(user_id=current_user.id, **session.dict())
     db.add(db_session)
     db.commit()
@@ -113,7 +106,6 @@ def update_session_state(session_id: int, state: schemas.SessionStateUpdate, cur
         raise HTTPException(status_code=404, detail="Session not found")
     update_data = state.dict(exclude_unset=True)
     if 'trades_data' in update_data and update_data['trades_data'] is not None:
-        # Ensure trades_data is stored as a JSON string
         update_data['trades_data'] = json.dumps(update_data['trades_data'])
     for key, value in update_data.items():
         setattr(session, key, value)
@@ -185,7 +177,6 @@ def update_journal_entry(journal_id: int, updated_entry: schemas.JournalEntryUpd
     db.refresh(db_entry)
     return db_entry
 
-# ADDED: Endpoint to Delete a Journal Entry
 @app.delete("/journal-entries/{journal_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_journal_entry(journal_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
     entry_query = db.query(models.JournalEntry).filter(
@@ -221,17 +212,13 @@ async def get_historical_data(
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
 
-    # 1. Check for cached data first
     if session.historical_data_cache:
         try:
-            # Load the cached data from the JSON string in the database
             chart_data = json.loads(session.historical_data_cache)
             return {"data": chart_data, "source": "cache"}
         except json.JSONDecodeError:
-            # If cache is corrupted, proceed to fetch from API
             pass
 
-    # 2. If no cache, fetch from the API
     api_key = os.getenv("TWELVE_DATA_API_KEY")
     if not api_key:
         raise HTTPException(status_code=500, detail="API key is not configured on the server.")
