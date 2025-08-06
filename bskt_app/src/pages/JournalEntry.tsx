@@ -16,7 +16,7 @@ const JournalEntryPage = () => {
 
   const apiUrl =
     import.meta.env.VITE_API_URL ||
-    (import.meta.env.DEV ? 'http://localhost:8000' : 'https://bkst-backend.railway.app');
+    (import.meta.env.DEV ? 'http://localhost:8000' : 'https://bkst-production.up.railway.app');
 
   const getAuthToken = () => localStorage.getItem('access_token');
 

@@ -79,7 +79,7 @@ const TraderDashboard = () => {
   // It defaults to your localhost address for easy local development.
   const apiUrl =
     import.meta.env.VITE_API_URL ||
-    (import.meta.env.DEV ? 'http://localhost:8000' : 'https://bkst-backend.railway.app');
+    (import.meta.env.DEV ? 'http://localhost:8000' : 'https://bkst-production.up.railway.app');
   // --- END OF MODIFICATION ---
 
   const [formData, setFormData] = useState<FormData>({

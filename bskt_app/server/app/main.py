@@ -27,8 +27,10 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "https://bkst-frontend.onrender.com",
+        "https://your-vercel-app.vercel.app",  # Replace with your actual Vercel URL
         "http://localhost:5173",
         "http://localhost:3000",
+        "*",  # Temporary: allows all origins (remove this in production)
     ],
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD"],
