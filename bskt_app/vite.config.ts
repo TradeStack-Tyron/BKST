@@ -7,6 +7,7 @@ import { resolve } from 'path';
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   root: '.',
+  base: '/',
   build: {
     outDir: 'dist',
     rollupOptions: {
