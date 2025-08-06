@@ -17,12 +17,13 @@ class UserOut(BaseModel):
     email: EmailStr
     class Config:
         from_attributes = True
+        # FIX: Add a JSON encoder to handle Decimal types
+        json_encoders = {Decimal: float}
 
 # --- Session Schemas ---
 class SessionCreate(BaseModel):
     name: str
     symbol: str
-    # FIX: Add timeframe to the creation schema
     timeframe: str
     start_date: date
     end_date: date
@@ -47,6 +48,8 @@ class SessionOut(BaseModel):
     is_completed: bool
     class Config:
         from_attributes = True
+        # FIX: Add a JSON encoder to handle Decimal types
+        json_encoders = {Decimal: float}
 
 class SessionStateUpdate(BaseModel):
     current_candle_index: int
@@ -74,6 +77,8 @@ class JournalEntryOut(BaseModel):
     updated_at: Optional[datetime] = None
     class Config:
         from_attributes = True
+        # FIX: Add a JSON encoder to handle Decimal types
+        json_encoders = {Decimal: float}
 
 # --- Historical data response schema ---
 class HistoricalDataPoint(BaseModel):
