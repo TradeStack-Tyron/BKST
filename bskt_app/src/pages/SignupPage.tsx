@@ -68,6 +68,7 @@ const SignupPage = () => {
       };
 
       // FIX: Use apiUrl for fetch call
+      console.log('Making request to:', `${apiUrl}/signup`);
       const response = await fetch(`${apiUrl}/signup`, {
         method: 'POST',
         headers: {
@@ -75,6 +76,9 @@ const SignupPage = () => {
         },
         body: JSON.stringify(signupData),
       });
+
+      console.log('Response status:', response.status);
+      console.log('Response headers:', response.headers);
 
       if (response.ok) {
         // FIX: Removed unused 'userData' variable to resolve TS6133 error.
@@ -88,12 +92,28 @@ const SignupPage = () => {
           },
         });
       } else {
-        const errorData = await response.json();
-        setError(errorData.detail || 'Failed to create account');
+        // Get response text first to see what we're actually receiving
+        const responseText = await response.text();
+        console.log('Error response text:', responseText);
+
+        try {
+          const errorData = JSON.parse(responseText);
+          setError(errorData.detail || 'Failed to create account');
+        } catch {
+          setError(
+            `Server error (${response.status}): ${
+              responseText || 'Unknown error'
+            }`
+          );
+        }
       }
     } catch (err) {
-      setError('Network error. Please try again.');
-      console.error('Signup error:', err);
+      console.error('Full error object:', err);
+      setError(
+        `Network error: ${
+          err instanceof Error ? err.message : 'Please try again.'
+        }`
+      );
     } finally {
       setLoading(false);
     }
