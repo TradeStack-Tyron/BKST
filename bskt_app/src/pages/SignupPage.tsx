@@ -18,7 +18,9 @@ const SignupPage = () => {
   // API URL configuration
   const apiUrl =
     import.meta.env.VITE_API_URL ||
-    (import.meta.env.DEV ? 'http://localhost:8000' : '/api');
+    (import.meta.env.DEV
+      ? 'http://localhost:8000'
+      : 'https://bkst-backend.railway.app');
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({

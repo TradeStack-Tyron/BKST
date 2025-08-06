@@ -70,7 +70,7 @@ const TradingChart: React.FC = () => {
   // API URL configuration
   const apiUrl =
     import.meta.env.VITE_API_URL ||
-    (import.meta.env.DEV ? 'http://localhost:8000' : '/api');
+    (import.meta.env.DEV ? 'http://localhost:8000' : 'https://bkst-backend.railway.app');
 
   const [session, setSession] = useState<Session | null>(null);
   const [currentPrice, setCurrentPrice] = useState<number>(0);

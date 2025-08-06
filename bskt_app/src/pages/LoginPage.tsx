@@ -14,7 +14,7 @@ const LoginPage = () => {
   // API URL configuration
   const apiUrl =
     import.meta.env.VITE_API_URL ||
-    (import.meta.env.DEV ? 'http://localhost:8000' : '/api');
+    (import.meta.env.DEV ? 'http://localhost:8000' : 'https://bkst-backend.railway.app');
 
   // Check for a success message from the signup page
   const successMessage = location.state?.message;
