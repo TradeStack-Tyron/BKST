@@ -26,10 +26,11 @@ app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
+        "https://bkst.vercel.app",  # Your actual Vercel URL
         "https://bkst-frontend.onrender.com",
-        "https://your-vercel-app.vercel.app",  # Replace with your actual Vercel URL
         "http://localhost:5173",
         "http://localhost:3000",
+        "http://localhost:4173",  # Vite preview
         "*",  # Temporary: allows all origins (remove this in production)
     ],
     allow_credentials=True,
