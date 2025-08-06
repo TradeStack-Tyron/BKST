@@ -23,13 +23,10 @@ models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
 
-# --- FINAL, ROBUST CORS CONFIGURATION ---
-# This uses a Regular Expression to flexibly match allowed origins,
-# solving the persistent CORS issues for deployment.
 app.add_middleware(
     CORSMiddleware,
-    # This regex allows your specific live frontend URL AND localhost for development.
-    allow_origin_regex=r"https://bkst-frontend\.onrender\.com|http://localhost:5173",
+    # Fixed regex pattern that properly anchors the match
+    allow_origin_regex=r"^(https://bkst-frontend\.onrender\.com|http://localhost:5173)$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
