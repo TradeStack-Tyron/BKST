@@ -25,12 +25,24 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    # Fixed regex pattern that properly anchors the match
-    allow_origin_regex=r"^(https://bkst-frontend\.onrender\.com|http://localhost:5173)$",
+    allow_origins=[
+        "https://bkst-frontend.onrender.com",
+        "http://localhost:5173",
+        "http://localhost:3000",  # In case you use different local ports
+    ],
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
+
+@app.get("/test-cors")
+def test_cors():
+    return {"message": "CORS is working", "timestamp": datetime.utcnow()}
+
+# Also add this manual CORS handler for preflight requests (if needed)
+@app.options("/{path:path}")
+def options_handler(path: str):
+    return {"message": "OK"}
 # --- END OF CORS CONFIGURATION ---
 
 
