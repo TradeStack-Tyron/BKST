@@ -25,14 +25,7 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "https://bkst.vercel.app",  # Your actual Vercel URL
-        "https://bkst-frontend.onrender.com",
-        "http://localhost:5173",
-        "http://localhost:3000",
-        "http://localhost:4173",  # Vite preview
-        "*",  # Temporary: allows all origins (remove this in production)
-    ],
+    allow_origins=["*"],  # Allow all origins temporarily for testing
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD"],
     allow_headers=["*"],
@@ -43,7 +36,7 @@ app.add_middleware(
 def test_cors():
     return {"message": "CORS is working", "timestamp": datetime.utcnow()}
 
-# Also add this manual CORS handler for preflight requests (if needed)
+# Manual CORS handler for preflight requests
 @app.options("/{path:path}")
 def options_handler(path: str):
     return {"message": "OK"}
