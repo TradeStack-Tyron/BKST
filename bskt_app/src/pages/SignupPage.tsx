@@ -15,8 +15,10 @@ const SignupPage = () => {
   const [loading, setLoading] = useState(false);
 
   const navigate = useNavigate();
-  // FIX: Add apiUrl for deployment
-  const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+  // API URL configuration
+  const apiUrl =
+    import.meta.env.VITE_API_URL ||
+    (import.meta.env.DEV ? 'http://localhost:8000' : '/api');
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({
@@ -102,7 +104,8 @@ const SignupPage = () => {
       <div className="relative isolate px-6 pt-14 lg:px-8">
         <div
           aria-hidden="true"
-          className="absolute inset-x-0 -top-40 -z-10 transform-gpu overflow-hidden blur-3xl sm:-top-80">
+          className="absolute inset-x-0 -top-40 -z-10 transform-gpu overflow-hidden blur-3xl sm:-top-80"
+        >
           <div
             style={{
               clipPath:
@@ -190,7 +193,8 @@ const SignupPage = () => {
               <button
                 type="submit"
                 disabled={loading}
-                className={loading ? 'opacity-50 cursor-not-allowed' : ''}>
+                className={loading ? 'opacity-50 cursor-not-allowed' : ''}
+              >
                 {loading ? 'Creating Account...' : 'Create Account'}
               </button>
 
@@ -201,7 +205,8 @@ const SignupPage = () => {
                 </span>
                 <a
                   href="/login"
-                  className="text-purple-300 hover:text-purple-200 font-medium text-[19px]">
+                  className="text-purple-300 hover:text-purple-200 font-medium text-[19px]"
+                >
                   Sign in
                 </a>
               </div>
@@ -211,7 +216,8 @@ const SignupPage = () => {
 
         <div
           aria-hidden="true"
-          className="bg-black-200 absolute inset-x-0 top-[calc(100%-13rem)] -z-10 transform-gpu overflow-hidden blur-3xl sm:top-[calc(100%-30rem)]">
+          className="bg-black-200 absolute inset-x-0 top-[calc(100%-13rem)] -z-10 transform-gpu overflow-hidden blur-3xl sm:top-[calc(100%-30rem)]"
+        >
           <div
             style={{
               clipPath:

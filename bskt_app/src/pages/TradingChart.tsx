@@ -67,8 +67,10 @@ const TradingChart: React.FC = () => {
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null);
 
-  // FIX: Add apiUrl for deployment
-  const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+  // API URL configuration
+  const apiUrl =
+    import.meta.env.VITE_API_URL ||
+    (import.meta.env.DEV ? 'http://localhost:8000' : '/api');
 
   const [session, setSession] = useState<Session | null>(null);
   const [currentPrice, setCurrentPrice] = useState<number>(0);
@@ -398,7 +400,8 @@ const TradingChart: React.FC = () => {
           onClick={() =>
             navigate(`/dashboard/${localStorage.getItem('user_id')}`)
           }
-          className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-2 rounded-lg font-medium">
+          className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-2 rounded-lg font-medium"
+        >
           Back to Dashboard
         </button>
       </div>
@@ -414,7 +417,8 @@ const TradingChart: React.FC = () => {
               onClick={() =>
                 navigate(`/dashboard/${localStorage.getItem('user_id')}`)
               }
-              className="text-purple-200 hover:text-white p-2 rounded hover:bg-purple-900/20">
+              className="text-purple-200 hover:text-white p-2 rounded hover:bg-purple-900/20"
+            >
               <ArrowLeft size={20} />
             </button>
             <div className="flex items-center space-x-3">
@@ -436,7 +440,8 @@ const TradingChart: React.FC = () => {
                 <span
                   className={`text-sm ${
                     priceChange >= 0 ? 'text-green-400' : 'text-red-400'
-                  }`}>
+                  }`}
+                >
                   {priceChange >= 0 ? '+' : ''}
                   {priceChange.toFixed(4)} ({priceChangePercent >= 0 ? '+' : ''}
                   {priceChangePercent.toFixed(2)}%)
@@ -460,7 +465,8 @@ const TradingChart: React.FC = () => {
                   selectedTimeframe === tf.value
                     ? 'bg-gradient-to-r from-[#ff80b5] to-[#9089fc] text-white'
                     : 'text-purple-200 hover:text-white hover:bg-purple-900/20'
-                }`}>
+                }`}
+              >
                 {tf.label}
               </button>
             ))}
@@ -474,7 +480,8 @@ const TradingChart: React.FC = () => {
                     ? 'bg-purple-600 text-white'
                     : 'text-purple-200 hover:text-white hover:bg-purple-900/20'
                 }`}
-                title="Horizontal Line">
+                title="Horizontal Line"
+              >
                 <Minus size={16} />
               </button>
               <button
@@ -484,7 +491,8 @@ const TradingChart: React.FC = () => {
                     ? 'bg-purple-600 text-white'
                     : 'text-purple-200 hover:text-white hover:bg-purple-900/20'
                 }`}
-                title="Trend Line">
+                title="Trend Line"
+              >
                 <TrendLine size={16} />
               </button>
               <button
@@ -494,7 +502,8 @@ const TradingChart: React.FC = () => {
                     ? 'bg-purple-600 text-white'
                     : 'text-purple-200 hover:text-white hover:bg-purple-900/20'
                 }`}
-                title="Rectangle">
+                title="Rectangle"
+              >
                 <Square size={16} />
               </button>
             </div>
@@ -502,18 +511,21 @@ const TradingChart: React.FC = () => {
               <button
                 onClick={handleStepBack}
                 disabled={currentCandleIndex <= 20}
-                className="p-2 text-purple-200 hover:text-white hover:bg-purple-900/20 rounded disabled:opacity-50">
+                className="p-2 text-purple-200 hover:text-white hover:bg-purple-900/20 rounded disabled:opacity-50"
+              >
                 <SkipBack size={16} />
               </button>
               <button
                 onClick={handlePlay}
-                className="p-2 bg-purple-600 hover:bg-purple-700 text-white rounded transition-colors">
+                className="p-2 bg-purple-600 hover:bg-purple-700 text-white rounded transition-colors"
+              >
                 {isPlaying ? <Pause size={16} /> : <Play size={16} />}
               </button>
               <button
                 onClick={handleStepForward}
                 disabled={currentCandleIndex >= allCandles.length - 1}
-                className="p-2 text-purple-200 hover:text-white hover:bg-purple-900/20 rounded disabled:opacity-50">
+                className="p-2 text-purple-200 hover:text-white hover:bg-purple-900/20 rounded disabled:opacity-50"
+              >
                 <SkipForward size={16} />
               </button>
             </div>
@@ -568,7 +580,8 @@ const TradingChart: React.FC = () => {
                     totalPortfolioValue - startingCapital >= 0
                       ? 'text-green-400'
                       : 'text-red-400'
-                  }`}>
+                  }`}
+                >
                   ${(totalPortfolioValue - startingCapital).toFixed(2)}
                 </span>
               </div>
@@ -598,7 +611,8 @@ const TradingChart: React.FC = () => {
                     position.unrealizedPnL >= 0
                       ? 'text-green-400'
                       : 'text-red-400'
-                  }`}>
+                  }`}
+                >
                   ${position.unrealizedPnL.toFixed(2)}
                 </span>
               </div>
@@ -621,13 +635,15 @@ const TradingChart: React.FC = () => {
               <div className="grid grid-cols-2 gap-2">
                 <button
                   onClick={() => executeTrade('BUY')}
-                  className="bg-green-600 hover:bg-green-700 text-white py-2.5 rounded font-medium flex items-center justify-center space-x-2">
+                  className="bg-green-600 hover:bg-green-700 text-white py-2.5 rounded font-medium flex items-center justify-center space-x-2"
+                >
                   <TrendingUp size={16} />
                   <span>BUY</span>
                 </button>
                 <button
                   onClick={() => executeTrade('SELL')}
-                  className="bg-red-600 hover:bg-red-700 text-white py-2.5 rounded font-medium flex items-center justify-center space-x-2">
+                  className="bg-red-600 hover:bg-red-700 text-white py-2.5 rounded font-medium flex items-center justify-center space-x-2"
+                >
                   <TrendingDown size={16} />
                   <span>SELL</span>
                 </button>
@@ -652,14 +668,16 @@ const TradingChart: React.FC = () => {
                 trades.slice(0, 8).map((trade) => (
                   <div
                     key={trade.id}
-                    className="bg-purple-900/10 rounded-lg p-3 border border-purple-900/30">
+                    className="bg-purple-900/10 rounded-lg p-3 border border-purple-900/30"
+                  >
                     <div className="flex items-center justify-between mb-2">
                       <span
                         className={`px-2 py-1 rounded text-xs font-medium ${
                           trade.type === 'BUY'
                             ? 'bg-green-600/20 text-green-400'
                             : 'bg-red-600/20 text-red-400'
-                        }`}>
+                        }`}
+                      >
                         {trade.type}
                       </span>
                       <span className="text-sm text-purple-200">
@@ -676,7 +694,8 @@ const TradingChart: React.FC = () => {
                             trade.profit >= 0
                               ? 'text-green-400'
                               : 'text-red-400'
-                          }`}>
+                          }`}
+                        >
                           {trade.profit >= 0 ? '+' : ''}$
                           {trade.profit.toFixed(2)}
                         </span>

@@ -77,7 +77,9 @@ const TraderDashboard = () => {
   // --- MODIFIED FOR DEPLOYMENT ---
   // This variable reads the backend URL from environment variables.
   // It defaults to your localhost address for easy local development.
-  const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+  const apiUrl =
+    import.meta.env.VITE_API_URL ||
+    (import.meta.env.DEV ? 'http://localhost:8000' : '/api');
   // --- END OF MODIFICATION ---
 
   const [formData, setFormData] = useState<FormData>({
@@ -280,7 +282,8 @@ const TraderDashboard = () => {
       <div className="relative isolate px-6 pt-14 lg:px-8">
         <div
           aria-hidden="true"
-          className="absolute top-10 right-10 -z-10 transform-gpu overflow-hidden blur-3xl">
+          className="absolute top-10 right-10 -z-10 transform-gpu overflow-hidden blur-3xl"
+        >
           <div className="relative w-96 h-96 bg-purple-600/20 rounded-full" />
         </div>
         <nav className="border-b border-gray-800 -mx-6 px-6 mb-8">
@@ -292,7 +295,8 @@ const TraderDashboard = () => {
               </span>
               <button
                 onClick={handleLogout}
-                className="flex items-center space-x-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg">
+                className="flex items-center space-x-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg"
+              >
                 <LogOut size={18} />
                 <span>Logout</span>
               </button>
@@ -310,13 +314,15 @@ const TraderDashboard = () => {
             <div className="flex justify-center space-x-4">
               <button
                 onClick={() => setShowCreateForm(true)}
-                className="bg-purple-600 hover:bg-purple-700 text-white px-8 py-4 rounded-lg text-lg font-medium flex items-center space-x-3">
+                className="bg-purple-600 hover:bg-purple-700 text-white px-8 py-4 rounded-lg text-lg font-medium flex items-center space-x-3"
+              >
                 <Plus size={24} />
                 <span>Create Session</span>
               </button>
               <button
                 onClick={() => navigate('/journal/new')}
-                className="bg-purple-600 hover:bg-purple-700 text-white px-8 py-4 rounded-lg text-lg font-medium flex items-center space-x-3">
+                className="bg-purple-600 hover:bg-purple-700 text-white px-8 py-4 rounded-lg text-lg font-medium flex items-center space-x-3"
+              >
                 <BookOpen size={24} />
                 <span>Add Journal Entry</span>
               </button>
@@ -343,7 +349,8 @@ const TraderDashboard = () => {
                 <span
                   className={`text-2xl font-bold ${
                     totalPnL >= 0 ? 'text-green-400' : 'text-red-400'
-                  }`}>
+                  }`}
+                >
                   {totalPnL >= 0 ? '+' : ''}
                   {totalPnL.toLocaleString(undefined, {
                     minimumFractionDigits: 2,
@@ -378,7 +385,8 @@ const TraderDashboard = () => {
                     <div
                       key={s.id}
                       onClick={() => navigate(`/trading/${s.id}`)}
-                      className="border border-gray-800 rounded-lg p-4 hover:border-gray-700 cursor-pointer hover:bg-gray-900/50 flex items-center justify-between">
+                      className="border border-gray-800 rounded-lg p-4 hover:border-gray-700 cursor-pointer hover:bg-gray-900/50 flex items-center justify-between"
+                    >
                       <div>
                         <h4 className="font-medium text-white">{s.name}</h4>
                         <span className="text-sm text-gray-400">
@@ -391,7 +399,8 @@ const TraderDashboard = () => {
                             !s.is_completed
                               ? 'bg-green-900/30 text-green-300'
                               : 'bg-gray-800/30 text-gray-400'
-                          }`}>
+                          }`}
+                        >
                           {!s.is_completed ? 'Active' : 'Closed'}
                         </span>
                         {/* This button correctly calls the delete handler. */}
@@ -401,7 +410,8 @@ const TraderDashboard = () => {
                             handleDeleteSession(s.id);
                           }}
                           className="p-2 text-gray-500 hover:text-red-500 hover:bg-red-900/20 rounded-full transition-colors"
-                          title="Delete Session">
+                          title="Delete Session"
+                        >
                           <Trash2 size={16} />
                         </button>
                       </div>
@@ -424,7 +434,8 @@ const TraderDashboard = () => {
                     <div
                       key={entry.id}
                       onClick={() => navigate(`/journal/edit/${entry.id}`)}
-                      className="border border-gray-800 rounded-lg p-4 hover:border-gray-700 cursor-pointer hover:bg-gray-900/50">
+                      className="border border-gray-800 rounded-lg p-4 hover:border-gray-700 cursor-pointer hover:bg-gray-900/50"
+                    >
                       <div className="flex items-center justify-between">
                         <h4 className="font-medium text-white truncate">
                           {entry.title}
@@ -452,7 +463,8 @@ const TraderDashboard = () => {
                 </h3>
                 <button
                   onClick={() => setShowCreateForm(false)}
-                  className="text-gray-400 hover:text-white">
+                  className="text-gray-400 hover:text-white"
+                >
                   <X size={24} />
                 </button>
               </div>
@@ -480,7 +492,8 @@ const TraderDashboard = () => {
                       name="symbol"
                       value={formData.symbol}
                       onChange={handleInputChange}
-                      className="w-full bg-black border border-gray-700 rounded-lg px-4 py-3 text-white">
+                      className="w-full bg-black border border-gray-700 rounded-lg px-4 py-3 text-white"
+                    >
                       {availableSymbols.map((s) => (
                         <option key={s} value={s}>
                           {s}
@@ -496,7 +509,8 @@ const TraderDashboard = () => {
                       name="timeframe"
                       value={formData.timeframe}
                       onChange={handleInputChange}
-                      className="w-full bg-black border border-gray-700 rounded-lg px-4 py-3 text-white">
+                      className="w-full bg-black border border-gray-700 rounded-lg px-4 py-3 text-white"
+                    >
                       {availableTimeframes.map((tf) => (
                         <option key={tf.value} value={tf.value}>
                           {tf.label}
@@ -558,12 +572,14 @@ const TraderDashboard = () => {
                       !formData.endDate ||
                       submitting
                     }
-                    className="flex-1 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 text-white py-3 rounded-lg">
+                    className="flex-1 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 text-white py-3 rounded-lg"
+                  >
                     Create Session
                   </button>
                   <button
                     onClick={() => setShowCreateForm(false)}
-                    className="flex-1 bg-gray-700 hover:bg-gray-600 text-white py-3 rounded-lg">
+                    className="flex-1 bg-gray-700 hover:bg-gray-600 text-white py-3 rounded-lg"
+                  >
                     Cancel
                   </button>
                 </div>

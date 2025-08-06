@@ -11,8 +11,10 @@ const LoginPage = () => {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  // FIX: Add apiUrl for deployment
-  const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+  // API URL configuration
+  const apiUrl =
+    import.meta.env.VITE_API_URL ||
+    (import.meta.env.DEV ? 'http://localhost:8000' : '/api');
 
   // Check for a success message from the signup page
   const successMessage = location.state?.message;
@@ -70,7 +72,8 @@ const LoginPage = () => {
         {/* Background gradient */}
         <div
           aria-hidden="true"
-          className="absolute inset-x-0 -top-40 -z-10 transform-gpu overflow-hidden blur-3xl sm:-top-80">
+          className="absolute inset-x-0 -top-40 -z-10 transform-gpu overflow-hidden blur-3xl sm:-top-80"
+        >
           <div
             style={{
               clipPath:
@@ -126,7 +129,8 @@ const LoginPage = () => {
               <button
                 type="submit"
                 disabled={loading}
-                className={loading ? 'opacity-50 cursor-not-allowed' : ''}>
+                className={loading ? 'opacity-50 cursor-not-allowed' : ''}
+              >
                 {loading ? 'Signing In...' : 'Sign In'}
               </button>
 
@@ -137,7 +141,8 @@ const LoginPage = () => {
                 </span>
                 <a
                   href="/signup"
-                  className="text-purple-300 hover:text-purple-200 font-medium text-[19px]">
+                  className="text-purple-300 hover:text-purple-200 font-medium text-[19px]"
+                >
                   Sign up
                 </a>
               </div>

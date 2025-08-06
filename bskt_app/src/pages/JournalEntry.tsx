@@ -14,7 +14,9 @@ const JournalEntryPage = () => {
 
   const isEditing = Boolean(journalId);
 
-  const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+  const apiUrl =
+    import.meta.env.VITE_API_URL ||
+    (import.meta.env.DEV ? 'http://localhost:8000' : '/api');
 
   const getAuthToken = () => localStorage.getItem('access_token');
 
@@ -152,7 +154,8 @@ const JournalEntryPage = () => {
     <div className="bg-black min-h-screen text-white">
       <div
         aria-hidden="true"
-        className="absolute inset-0 -z-10 transform-gpu overflow-hidden blur-3xl">
+        className="absolute inset-0 -z-10 transform-gpu overflow-hidden blur-3xl"
+      >
         <div className="relative left-1/2 top-1/4 w-[50rem] h-[50rem] -translate-x-1/2 bg-gradient-to-tr from-[#ff80b5] to-[#9089fc] opacity-10" />
       </div>
       <div className="border-b border-purple-900/30 px-4 py-3">
@@ -160,7 +163,8 @@ const JournalEntryPage = () => {
           <div className="flex items-center space-x-4">
             <button
               onClick={handleBackToDashboard}
-              className="text-purple-200 hover:text-white p-2 rounded hover:bg-purple-900/20">
+              className="text-purple-200 hover:text-white p-2 rounded hover:bg-purple-900/20"
+            >
               <ArrowLeft size={20} />
             </button>
             <div className="flex items-center space-x-3">
@@ -177,7 +181,8 @@ const JournalEntryPage = () => {
           <div>
             <label
               htmlFor="title"
-              className="block text-sm font-medium mb-2 text-purple-200">
+              className="block text-sm font-medium mb-2 text-purple-200"
+            >
               Title
             </label>
             <input
@@ -192,7 +197,8 @@ const JournalEntryPage = () => {
           <div>
             <label
               htmlFor="content"
-              className="block text-sm font-medium mb-2 text-purple-200">
+              className="block text-sm font-medium mb-2 text-purple-200"
+            >
               Your Thoughts
             </label>
             <textarea
@@ -215,7 +221,8 @@ const JournalEntryPage = () => {
                 <button
                   onClick={handleDelete}
                   disabled={submitting}
-                  className="bg-red-800 hover:bg-red-700 disabled:bg-gray-600 text-white px-6 py-2.5 rounded-lg font-medium flex items-center space-x-2">
+                  className="bg-red-800 hover:bg-red-700 disabled:bg-gray-600 text-white px-6 py-2.5 rounded-lg font-medium flex items-center space-x-2"
+                >
                   <Trash2 size={18} />
                   <span>Delete</span>
                 </button>
@@ -224,13 +231,15 @@ const JournalEntryPage = () => {
             <div className="flex space-x-4">
               <button
                 onClick={handleBackToDashboard}
-                className="bg-gray-700 hover:bg-gray-600 text-white px-6 py-2.5 rounded-lg font-medium">
+                className="bg-gray-700 hover:bg-gray-600 text-white px-6 py-2.5 rounded-lg font-medium"
+              >
                 Cancel
               </button>
               <button
                 onClick={handleSave}
                 disabled={submitting || !title || !content}
-                className="bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 text-white px-6 py-2.5 rounded-lg font-medium flex items-center space-x-2">
+                className="bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 text-white px-6 py-2.5 rounded-lg font-medium flex items-center space-x-2"
+              >
                 <Save size={18} />
                 <span>{submitting ? 'Saving...' : 'Save Entry'}</span>
               </button>
