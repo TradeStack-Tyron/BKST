@@ -1,10 +1,7 @@
 from sqlalchemy import Column, Integer, String, Date, DateTime, ForeignKey, Numeric, Text, Boolean
-from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 from datetime import datetime
-import json
-
-Base = declarative_base()
+from .database import Base  # <-- FIX: Import Base from database.py
 
 class User(Base):
     __tablename__ = "users"
@@ -33,10 +30,8 @@ class Session(Base):
     position_quantity = Column(Numeric, default=0)
     position_avg_price = Column(Numeric, default=0)
     trades_data = Column(Text, nullable=True)
-    # FIX: Changed default timeframe to match API requirements
     timeframe = Column(String, default='15min')
     is_completed = Column(Boolean, default=False)
-    # NEW: Add a column to cache historical data to save API calls
     historical_data_cache = Column(Text, nullable=True)
     user = relationship("User", back_populates="sessions")
 
