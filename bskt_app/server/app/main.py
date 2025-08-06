@@ -9,7 +9,7 @@ from typing import List
 import json
 from dotenv import load_dotenv
 
-# Load environment variables from .env file
+# Load environment variables from .env file for local development
 load_dotenv()
 
 from . import models, schemas
@@ -17,12 +17,15 @@ from .database import SessionLocal, engine
 from .utils import hash_password, verify_password
 from .auth import create_access_token, verify_access_token
 
+# This line creates the database tables based on your models
+# if they don't already exist.
 models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
 
-# --- FINAL, MORE ROBUST CORS CONFIGURATION ---
-# This uses a Regular Expression to flexibly match allowed origins.
+# --- FINAL, ROBUST CORS CONFIGURATION ---
+# This uses a Regular Expression to flexibly match allowed origins,
+# solving the persistent CORS issues for deployment.
 app.add_middleware(
     CORSMiddleware,
     # This regex allows your specific live frontend URL AND localhost for development.
@@ -31,7 +34,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-# --- END OF NEW CONFIGURATION ---
+# --- END OF CORS CONFIGURATION ---
 
 
 def get_db():
@@ -127,7 +130,7 @@ def delete_session(session_id: int, db: Session = Depends(get_db), current_user:
     db.commit()
     return
 
-# --- Journal Endpoints ---
+# --- Journal Endpoints (Full CRUD) ---
 @app.post("/journal-entries", response_model=schemas.JournalEntryOut, status_code=status.HTTP_201_CREATED)
 def create_journal_entry(entry: schemas.JournalEntryCreate, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
     db_entry = models.JournalEntry(user_id=current_user.id, title=entry.title, content=entry.content)
