@@ -1,0 +1,20 @@
+# Ignore frontend files and build artifacts
+
+bskt_app/node_modules/
+bskt_app/dist/
+bskt_app/build/
+bskt_app/src/
+bskt_app/public/
+bskt_app/index.html
+bskt_app/package.json
+bskt_app/package-lock.json
+bskt_app/vite.config.ts
+bskt_app/tsconfig.json
+bskt_app/tsconfig.\*.json
+bskt_app/tailwind.config.cjs
+bskt_app/eslint.config.js
+bskt_app/.env
+
+# Only include server files
+
+!bskt_app/server/

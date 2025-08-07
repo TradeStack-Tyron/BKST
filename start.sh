@@ -15,9 +15,13 @@ ls -la
 # Set the Python path
 export PYTHONPATH="/app/bskt_app/server:$PYTHONPATH"
 
+# Install requirements (in case they weren't installed during build)
+echo "Installing Python requirements..."
+pip install -r requirements.txt
+
 # Run migrations
 echo "Running database migrations..."
-alembic upgrade head
+python -m alembic upgrade head
 
 # Start the FastAPI server
 echo "Starting FastAPI server..."
