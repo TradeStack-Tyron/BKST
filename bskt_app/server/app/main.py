@@ -29,7 +29,12 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allow all origins temporarily for testing
+    allow_origins=[
+        "http://localhost:3000",  # Local React dev
+        "http://localhost:5173",  # Local Vite dev
+        "https://*.vercel.app",   # Vercel deployments
+        "https://bkst-frontend.vercel.app",  # Your future Vercel domain (adjust as needed)
+    ],
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD"],
     allow_headers=["*"],
