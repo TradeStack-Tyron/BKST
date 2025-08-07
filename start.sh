@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-echo "Starting BACKEND ONLY deployment - v6.1 - FORCE REDEPLOY..."
+echo "Starting BACKEND ONLY deployment - v6.2 - FIX ALEMBIC PATH..."
 echo "Current directory: $(pwd)"
 echo "Directory contents:"
 ls -la
@@ -19,12 +19,20 @@ pip --version
 echo "Checking installed packages:"
 pip list | grep -E "(alembic|uvicorn|fastapi)"
 
+echo "Checking PATH:"
+echo $PATH
+
+echo "Looking for alembic:"
+which alembic || echo "alembic not in PATH"
+ls -la /opt/venv/bin/ | grep alembic || echo "alembic not in venv/bin"
+
 # Set the Python path
 export PYTHONPATH="/app:$PYTHONPATH"
 
-# Run migrations using alembic command directly
+# Run migrations using python -m alembic (more reliable)
 echo "Running database migrations..."
-alembic upgrade head
+python -c "import alembic; print('alembic module found')"
+/opt/venv/bin/python -m alembic upgrade head
 
 # Start the FastAPI server
 echo "Starting FastAPI server..."
