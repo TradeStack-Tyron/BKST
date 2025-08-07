@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-echo "Starting BACKEND ONLY deployment - v6.2 - FIX ALEMBIC PATH..."
+echo "Starting BACKEND ONLY deployment - v6.3 - SAFE DEBUGGING..."
 echo "Current directory: $(pwd)"
 echo "Directory contents:"
 ls -la
@@ -22,9 +22,8 @@ pip list | grep -E "(alembic|uvicorn|fastapi)"
 echo "Checking PATH:"
 echo $PATH
 
-echo "Looking for alembic:"
-which alembic || echo "alembic not in PATH"
-ls -la /opt/venv/bin/ | grep alembic || echo "alembic not in venv/bin"
+echo "Checking venv bin directory:"
+ls -la /opt/venv/bin/
 
 # Set the Python path
 export PYTHONPATH="/app:$PYTHONPATH"
