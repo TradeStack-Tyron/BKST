@@ -33,6 +33,7 @@ app.add_middleware(
         "http://localhost:3000",  # Local React dev
         "http://localhost:5173",  # Local Vite dev
         "https://*.vercel.app",   # Vercel deployments
+        "https://bskt-i2smdz5wh-tyronodames-projects.vercel.app",  # Your Vercel frontend
         "https://bkst-frontend.vercel.app",  # Your future Vercel domain (adjust as needed)
     ],
     allow_credentials=True,
