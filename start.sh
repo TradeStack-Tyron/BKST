@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-echo "Starting BACKEND ONLY deployment - v5..."
+echo "Starting BACKEND ONLY deployment - v6..."
 echo "Current directory: $(pwd)"
 echo "Directory contents:"
 ls -la
@@ -16,12 +16,15 @@ python --version
 echo "Pip version:"
 pip --version
 
+echo "Checking installed packages:"
+pip list | grep -E "(alembic|uvicorn|fastapi)"
+
 # Set the Python path
 export PYTHONPATH="/app:$PYTHONPATH"
 
-# Run migrations
+# Run migrations using alembic command directly
 echo "Running database migrations..."
-python -m alembic upgrade head
+alembic upgrade head
 
 # Start the FastAPI server
 echo "Starting FastAPI server..."
