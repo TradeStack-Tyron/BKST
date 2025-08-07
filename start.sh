@@ -15,7 +15,7 @@ export PYTHONPATH="/app:$PYTHONPATH"
 #!/bin/bash
 set -e
 
-echo "Starting BACKEND ONLY deployment - v3..."
+echo "Starting BACKEND ONLY deployment - v4..."
 echo "Current directory: $(pwd)"
 echo "Directory contents:"
 ls -la
@@ -24,7 +24,7 @@ echo "Python version:"
 python --version
 
 echo "Pip version:"
-python -m pip --version
+pip3 --version
 
 # Set the Python path
 export PYTHONPATH="/app:$PYTHONPATH"
