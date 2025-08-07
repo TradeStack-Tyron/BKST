@@ -19,7 +19,11 @@ from .auth import create_access_token, verify_access_token
 
 # This line creates the database tables based on your models
 # if they don't already exist.
-models.Base.metadata.create_all(bind=engine)
+try:
+    models.Base.metadata.create_all(bind=engine)
+except Exception as e:
+    print(f"Warning: Could not create database tables: {e}")
+    print("Make sure your PostgreSQL database is running and accessible.")
 
 app = FastAPI()
 
