@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-echo "Starting BACKEND ONLY deployment - v6..."
+echo "Starting BACKEND ONLY deployment - v6.1 - FORCE REDEPLOY..."
 echo "Current directory: $(pwd)"
 echo "Directory contents:"
 ls -la
