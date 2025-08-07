@@ -1,10 +1,13 @@
 #!/bin/bash
 set -e
 
-echo "Starting backend deployment..."
+echo "Starting BACKEND ONLY deployment - v2..."
 echo "Current directory: $(pwd)"
 echo "Directory contents:"
 ls -la
+
+echo "Python version:"
+python --version
 
 # Set the Python path
 export PYTHONPATH="/app:$PYTHONPATH"
