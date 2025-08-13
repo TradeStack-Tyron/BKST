@@ -16,7 +16,10 @@ A web application that helps day traders test and refine their strategies using 
   Analyze win rate, risk-to-reward, and consistency.
 
 - 🤖 **AI-Powered Trading Assistant**  
-  Ask trading-related questions and get instant guidance.
+  Get intelligent trading recommendations and insights
+
+- � **Advanced Analytics**  
+  Detailed performance metrics and reporting
 
 - 💸 **100% Free**  
   No subscriptions, no locked features — accessible to everyone.
@@ -27,21 +30,79 @@ A web application that helps day traders test and refine their strategies using 
 
 **Frontend:**
 
-- React + Vite
-- TypeScript
-- Tailwind CSS
-- Lightweight Charts (TradingView)
+- React with TypeScript
+- Vite for build tooling
+- Tailwind CSS for styling
+- Chart.js for data visualization
+- **Deployed on Vercel**
 
 **Backend:**
 
 - FastAPI (Python)
-- PostgreSQL (via SQLAlchemy or async ORM)
+- PostgreSQL database
+- SQLAlchemy ORM
 - JWT Authentication
+- **Deployed on Railway**
 
-**AI Integration:**
+**AI Integration (Planned):**
 
-- OpenAI API (ChatGPT or custom instructions)
+- OpenAI API integration for trading insights
 
 ---
 
 ## 🗂️ Project Structure
+
+```
+BKST/
+├── bskt_app/                   # Frontend React app
+│   ├── src/                    # React components and pages
+│   │   ├── pages/             # Application pages
+│   │   ├── assets/            # Static assets
+│   │   └── ...                # Other React files
+│   ├── server/                 # FastAPI backend
+│   │   ├── app/               # API routes and models
+│   │   ├── alembic/           # Database migrations
+│   │   └── sql_app.db         # SQLite database (local)
+│   └── package.json           # Frontend dependencies
+├── railway.toml               # Railway deployment config
+├── .railwayignore            # Railway ignore rules
+├── requirements.txt          # Backend dependencies
+└── README.md                 # Project documentation
+```
+
+---
+
+## 🚀 Deployment
+
+### Frontend (Vercel)
+
+- Automatically deploys from main branch
+- Environment variable: `VITE_API_URL` points to Railway backend
+- Build command: `npm run build`
+- Output directory: `dist`
+
+### Backend (Railway)
+
+- Automatically deploys from main branch
+- Includes PostgreSQL database
+- Serves API endpoints
+- Start command: `cd bskt_app/server && python -m uvicorn app.main:app --host 0.0.0.0 --port $PORT`
+
+---
+
+## 📝 API Endpoints
+
+- `POST /signup` - User registration
+- `POST /login` - User authentication
+- `GET /sessions` - Retrieve user sessions
+- `POST /sessions` - Create new trading session
+- `GET /docs` - Interactive API documentation (Swagger UI)
+
+---
+
+## 👤 Author
+
+**TradeStack-Tyron**
+
+- GitHub: [@TradeStack-Tyron](https://github.com/TradeStack-Tyron)
+- Repository: [BKST](https://github.com/TradeStack-Tyron/BKST)
