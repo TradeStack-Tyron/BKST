@@ -1,0 +1,20 @@
+# Ignore frontend files (deployed on Vercel)
+
+bskt_app/src/
+bskt_app/public/
+bskt_app/node_modules/
+bskt_app/dist/
+bskt_app/package.json
+bskt_app/package-lock.json
+bskt_app/vite.config.ts
+bskt_app/tsconfig\*.json
+bskt_app/tailwind.config.cjs
+bskt_app/eslint.config.js
+bskt_app/index.html
+bskt_app/.vercel/
+
+# Ignore other non-backend files
+
+\*.md
+.git/
+.gitignore
